@@ -2,6 +2,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.Path2D;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Random;
@@ -298,6 +299,7 @@ public class main extends JPanel implements ActionListener {
         g.setTransform(old);
     }
 
+
     private void drawCrackedEgg(Graphics2D g, int offset) { /* ...โค้ดเดิม... */
         Color eggColor = new Color(139, 69, 19, 200);
         g.setColor(eggColor);
@@ -412,6 +414,60 @@ public class main extends JPanel implements ActionListener {
             g.fillRect(xc + y, yc - x, 1, 1);
             g.fillRect(xc - y, yc - x, 1, 1);
         }
+    }
+
+    private class Heart{
+        int x, y, size;
+        boolean visible = true;
+        double speed;
+        int blinkCounter = 0;
+        int blinkRate = 15; //lower = faster
+
+        Heart(int x, int y, int size, double speed){
+            this.x = x;
+            this.y = y;
+            this.size = size;
+            this.speed = speed;
+        }
+        
+        void update(){
+            // y -= speed;
+
+            blinkCounter ++;
+            if(blinkCounter >= blinkRate){
+                visible = !visible;
+                blinkCounter = 0;
+            }
+        }
+
+        void draw(Graphics2D g){
+            if(!visible) return;
+
+            g.setColor(Color.RED);
+            drawHeartShape(g, x, y, size);
+        }
+
+        void drawHeartShape(Graphics2D g, int cx, int cy, int size){
+            double scale = size / 100.0;
+            Path2D.Double heart = new Path2D.Double();
+            heart.moveTo(50, -50);
+            heart.curveTo(50, -100, 100, 0, 0, 100);
+            heart.curveTo(-100, 0, -50, -100, 0, -50);
+            heart.closePath();
+
+            AffineTransform transform = new AffineTransform();
+            transform.translate(cx, cy);
+            transform.scale(scale, scale);
+            Shape transformedHeart = transform.createTransformedShape(heart);
+
+            g.fill(transformedHeart);
+            g.setColor(Color.RED);
+            g.setStroke(new BasicStroke());
+            g.draw(transformedHeart);
+        }
+
+
+
     }
 
     public static void main(String[] args) {
