@@ -2,6 +2,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.Path2D;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Random;
@@ -25,11 +26,13 @@ public class main extends JPanel implements ActionListener {
 
     // Air scene state
     private double mosquitoX_air, mosquitoY_air;
-    private int dogButtX;
-    private int landingTimer = 0;
-    private Point handPosition;
-    private double fallSpeed = 0;
-
+    private double femaleMosquitoX, femaleMosquitoY;
+    private double meetingX, meetingY;
+    private Heart heart;
+    double meteorX, meteorY;
+    private double meteorSpeedY = 10;
+    private boolean meteorHit = false;
+    ArrayList<Integer> cloudSpeeds = new ArrayList<>();
 
     public main() {
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
@@ -42,8 +45,27 @@ public class main extends JPanel implements ActionListener {
         clouds = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
             clouds.add(new Point(rand.nextInt(WIDTH), rand.nextInt(200) + 50));
+            cloudSpeeds.add(1 + rand.nextInt(3)); // ความเร็ว 1-3 pixel/frame
         }
-        handPosition = new Point(WIDTH, -200);
+        // กำหนดตำแหน่งกลางจอ (ตรงกลางและไม่ซ้ำกับตำแหน่งยุงตัวเมียเก่า)
+        meetingX = WIDTH / 2.0;
+        meetingY = 150;
+        // กำหนดตำแหน่งยุงตัวเมีย (ประมาณกลางจอด้านขวา)
+        femaleMosquitoX = (meetingX + 60);
+        femaleMosquitoY = meetingY;
+
+        // เริ่มบินจากซ้ายออกนอกจอ
+        // ให้ยุงตัวผู้ซ้ายกว่ากึ่งกลางประมาณ 30 pixel
+        mosquitoX_air = meetingX - 60;
+        mosquitoY_air = meetingY;
+
+        // หัวใจอยู่ตรงกลางระหว่างสองยุง (meetingX, meetingY)
+        heart = new Heart((femaleMosquitoX + mosquitoX_air) / 2, meetingY, 30, 0);
+
+        // เริ่มตำแหน่งอุกาบาตนอกจอ
+        meteorX = mosquitoX_air; // เริ่มที่ตัวผู้
+        meteorY = mosquitoY_air - 100; // อยู่สูงกว่ายุงตัวผู้เล็กน้อย (เริ่มนอกจอ)
+
     }
 
     @Override
@@ -55,19 +77,18 @@ public class main extends JPanel implements ActionListener {
     private void drawScene(Graphics2D g) {
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        // --- วาดพื้นหลังตามฉาก ---
-        if (sceneState <= 1 || sceneState == 5) { // ฉากใต้น้ำ หรือ ฉากกำลังตกน้ำ
-            g.setColor(new Color(10, 40, 80));
+        // พื้นหลัง
+        if (sceneState <= 1 || sceneState == 5) { // ใต้น้ำ หรือ กำลังตกน้ำ
+            g.setColor(new Color(70, 130, 150));
             g.fillRect(0, 0, WIDTH, HEIGHT);
             drawBottomGround(g);
             manageBubbles(g);
-             if (sceneState == 5) { // ถ้ากำลังตก ให้วาดฟ้าครึ่งบน
-                drawSkyBackground(g, (int)mosquitoY_air);
+            if (sceneState == 5) {
+                drawSkyBackground(g, (int) mosquitoY_air);
             }
-        } else { // ฉากบนฟ้า
+        } else {
             drawSkyBackground(g, 0);
         }
-
 
         // --- วาดองค์ประกอบหลักตามฉาก ---
         switch (sceneState) {
@@ -78,24 +99,40 @@ public class main extends JPanel implements ActionListener {
                 drawCrackedEgg(g, shellOffset);
                 drawEvolvingMosquito(g, eggBaseX, (int) mosquitoY, progress);
             }
-            case 2 -> { // บินบนฟ้า
+            case 2 -> {
                 drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, true, 0);
-                drawDogButt(g, dogButtX);
+                drawFemaleMosquito(g, (int) femaleMosquitoX, (int) femaleMosquitoY);
             }
-            case 3 -> { // ลงจอดแล้ว
-                drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, false, 0); // ไม่กระพือปีก
-                drawDogButt(g, dogButtX);
-            }
-            case 4 -> { // กำลังจะโดนตบ
+            case 3 -> {
                 drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, false, 0);
-                drawDogButt(g, dogButtX);
-                drawHand(g, handPosition.x, handPosition.y);
+                drawFemaleMosquito(g, (int) femaleMosquitoX, (int) femaleMosquitoY);
+                int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2);
+                int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2);
+                heart.x = heartX;
+                heart.y = heartY;
+                heart.draw(g);
             }
-             case 5 -> { // ตกน้ำ
-                drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, false, 45); // หมุนตอนตก
-                drawDogButt(g, dogButtX);
+            case 4 -> {
+                // วาดเหมือน scene 3 แต่เพิ่มอุกาบาต
+                drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, false, 0);
+                drawFemaleMosquito(g, (int) femaleMosquitoX, (int) femaleMosquitoY);
+                int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2);
+                int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2);
+                heart.x = heartX;
+                heart.y = heartY;
+                heart.draw(g);
+                drawMeteor(g, meteorX, meteorY);
+
+            }
+            case 5 -> {
+                // วาดผลหลังชน เช่น ตัวผู้โดนกระแทก
+                drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, false, 0);
+                drawFemaleMosquito(g, (int) femaleMosquitoX, (int) femaleMosquitoY);
+                drawMeteor(g, meteorX, meteorY);
+
             }
         }
+
     }
 
     @Override
@@ -104,7 +141,8 @@ public class main extends JPanel implements ActionListener {
 
         switch (sceneState) {
             case 0 -> { // ไข่สั่น
-                if (frameCount > 60) eggSwingAngle += 0.1;
+                if (frameCount > 60)
+                    eggSwingAngle += 0.1;
                 if (frameCount > 150) {
                     sceneState = 1;
                     mosquitoY = eggBaseY;
@@ -113,73 +151,124 @@ public class main extends JPanel implements ActionListener {
             }
             case 1 -> { // ลอกคราบ
                 mosquitoY -= 1.5;
-                if (shellOffset < 25) shellOffset++;
-                if (mosquitoY < 80) { // เมื่อลอยขึ้นสุด
-                    sceneState = 2; // เปลี่ยนเป็นฉากบิน
-                    mosquitoX_air = -40; // เริ่มจากนอกจอด้านซ้าย
-                    mosquitoY_air = 150;
-                    dogButtX = WIDTH; // เริ่มจากนอกจอด้านขวา
+                if (shellOffset < 25)
+                    shellOffset++;
+                if (mosquitoY < 80) {
+                    sceneState = 2; // บินขึ้นฟ้า
+                    mosquitoX_air = -40;
+                    mosquitoY_air = meetingY;
                 }
             }
-            case 2 -> { // บินหาเป้าหมาย
-                mosquitoX_air += 3.0;
-                mosquitoY_air += Math.sin(frameCount * 0.1) * 2; // บินขึ้นลงเล็กน้อย
-                if (dogButtX > WIDTH - 250) dogButtX -= 2; // ก้นหมาโผล่มา
+            case 2 -> { // บินหาเป้าหมาย (บินไปตำแหน่ง mosquitoX_target, meetingY)
+                double targetX = meetingX - 30;
+                if (mosquitoX_air < targetX) {
+                    mosquitoX_air += 3.0;
 
-                // ตรวจสอบการลงจอด
-                if (mosquitoX_air > dogButtX + 40) {
-                    sceneState = 3;
-                    // ปรับตำแหน่งยุงให้เกาะพอดี
-                    mosquitoX_air = dogButtX + 60;
-                    mosquitoY_air = 320;
-                    landingTimer = frameCount; // เริ่มจับเวลาตอนลงจอด
-                }
-            }
-            case 3 -> { // ลงจอดแล้ว
-                // อยู่เฉยๆ 2 วิ (60 เฟรม) แล้วมือจะมา
-                if (frameCount > landingTimer + 60) {
-                    sceneState = 4;
-                    handPosition.x = (int)mosquitoX_air - 50;
-                    handPosition.y = -200;
-                }
-            }
-            case 4 -> { // มือมาตบ
-                if (handPosition.y < mosquitoY_air - 150) {
-                    handPosition.y += 25; // มือเลื่อนลงมา
+                    // ให้ทั้งตัวผู้และตัวเมียแกว่งพร้อมกัน
+                    double deltaY = Math.sin(frameCount * 0.1) * 2;
+                    mosquitoY_air = meetingY + deltaY;
+                    femaleMosquitoY = meetingY + deltaY;
+
                 } else {
-                    // ตบ!
-                    sceneState = 5;
-                    fallSpeed = 0;
+                    mosquitoX_air = targetX;
+                    mosquitoY_air = meetingY;
+                    femaleMosquitoY = meetingY;
+
+                    sceneState = 3;
+                    frameCount = 0;
+                    heart.visible = true;
+                    heart.blinkCounter = 0;
                 }
             }
-            case 5 -> { // ยุงตก
-                fallSpeed += 0.5; // ความเร่ง
-                mosquitoY_air += fallSpeed;
-                mosquitoX_air -= 1;
 
-                // เมื่อตกถึงพื้นน้ำ
-                if (mosquitoY_air > HEIGHT) {
-                    // Reset all
+            case 3 -> {
+                int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2);
+                int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2);
+                heart.x = heartX;
+                heart.y = heartY;
+                heart.update();
+
+                if (frameCount > 120) {
+                    sceneState = 4;
+                    meteorX = mosquitoX_air;
+                    meteorY = -100;
+                    meteorHit = false;
+                    frameCount = 0;
+                }
+
+            }
+
+            case 4 -> {
+                meteorY += meteorSpeedY;
+                if (meteorY >= mosquitoY_air) {
+                    meteorHit = true;
+                    frameCount++;
+                    if (frameCount > 15) {
+                        sceneState = 5;
+                        frameCount = 0;
+                    }
+                }
+            }
+            case 5 -> {
+                mosquitoY_air += 5;
+                meteorY += 5;
+                if (mosquitoY_air > eggBaseY) {
                     frameCount = 0;
                     sceneState = 0;
                     eggSwingAngle = 0;
                     bubbles.clear();
-                    handPosition = new Point(WIDTH, -200);
+                    heart.visible = false;
+                    meteorX = -100;
+                    meteorY = -100;
                 }
             }
         }
 
-        // อัปเดตก้อนเมฆ
-        if (sceneState >= 2 && sceneState != 5) {
-            for(Point cloud : clouds) {
-                cloud.x -= 1;
+        // อัปเดตก้อนเมฆ เฉพาะสถานะที่บิน (2,3,4)
+        if (sceneState == 2 || sceneState == 3 || sceneState == 4) {
+            for (int i = 0; i < clouds.size(); i++) {
+                Point cloud = clouds.get(i);
+                int speed = cloudSpeeds.get(i);
+                cloud.x -= speed;
                 if (cloud.x < -150) {
                     cloud.x = WIDTH + 20;
-                    cloud.y = rand.nextInt(200) + 50;
+                    cloud.y = rand.nextInt(150) + 30;
                 }
             }
         }
         repaint();
+    }
+
+    // เพิ่ม method วาดยุงตัวเมียและหัวใจ
+    private void drawFemaleMosquito(Graphics2D g, double x, double y) {
+        AffineTransform old = g.getTransform();
+        g.translate(x, y);
+
+        g.setColor(new Color(100, 20, 20)); // สีเข้มกว่ายุงตัวผู้
+        g.fillOval(-5, -20, 10, 20); // ลำตัว
+        g.fillOval(-4, -24, 8, 8); // หัว
+
+        g.setColor(Color.BLACK);
+        g.setStroke(new BasicStroke(1.5f));
+        g.drawLine(0, -15, -15, -10);
+        g.drawLine(0, -15, 15, -10);
+        g.drawLine(0, -10, -15, -5);
+        g.drawLine(0, -10, 15, -5);
+
+        g.setTransform(old);
+    }
+
+    private void drawMeteor(Graphics2D g, double x, double y) {
+        AffineTransform old = g.getTransform();
+        g.translate(x, y);
+
+        g.setColor(new Color(150, 75, 0));
+        g.fillOval(0, 0, 40, 40);
+
+        g.setColor(Color.ORANGE);
+        g.fillOval(5, 5, 30, 30);
+
+        g.setTransform(old);
     }
 
     // --- เมธอดวาดฉากใหม่ ---
@@ -189,30 +278,31 @@ public class main extends JPanel implements ActionListener {
         g.setPaint(skyPaint);
         g.fillRect(0, 0, WIDTH, HEIGHT - waterLevel);
 
-
         // ก้อนเมฆ
         g.setColor(Color.WHITE);
-        for(Point cloud : clouds) {
+        for (Point cloud : clouds) {
             g.fillOval(cloud.x, cloud.y, 100, 40);
             g.fillOval(cloud.x + 30, cloud.y - 20, 80, 50);
         }
     }
 
-    private void drawFlyingMosquito(Graphics2D g, int x, int y, boolean flapping, double angle) {
+    private void drawFlyingMosquito(Graphics2D g, double x, double y, boolean flapping, double angle) {
         AffineTransform old = g.getTransform();
         g.translate(x, y);
         g.rotate(Math.toRadians(angle));
 
         // ลำตัว (สีเดียวกับตอน Evolve)
-        g.setColor(new Color(40,40,40));
+        g.setColor(new Color(40, 40, 40));
         g.fillOval(-5, -20, 10, 20); // Thorax & Abdomen
         g.fillOval(-4, -24, 8, 8); // Head
 
         // ขา
         g.setColor(Color.BLACK);
         g.setStroke(new BasicStroke(1.5f));
-        g.drawLine(0, -15, -15, -10); g.drawLine(0, -15, 15, -10);
-        g.drawLine(0, -10, -15, -5);  g.drawLine(0, -10, 15, -5);
+        g.drawLine(0, -15, -15, -10);
+        g.drawLine(0, -15, 15, -10);
+        g.drawLine(0, -10, -15, -5);
+        g.drawLine(0, -10, 15, -5);
 
         // ปีก
         if (flapping) {
@@ -226,38 +316,6 @@ public class main extends JPanel implements ActionListener {
         g.setTransform(old);
     }
 
-    private void drawDogButt(Graphics2D g, int x) {
-        AffineTransform old = g.getTransform();
-        g.translate(x, 250);
-
-        // บั้นท้าย
-        g.setColor(new Color(210, 180, 140)); // Tan
-        g.fillOval(0, 0, 100, 120);
-        g.fillOval(80, 0, 100, 120);
-
-        // หาง
-        g.setColor(new Color(160, 82, 45)); // Sienna
-        g.setStroke(new BasicStroke(8, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.drawArc(150, 40, 50, 80, 180, 120);
-
-        g.setTransform(old);
-    }
-
-    private void drawHand(Graphics2D g, int x, int y) {
-        AffineTransform old = g.getTransform();
-        g.translate(x, y);
-        g.setColor(new Color(255, 224, 189)); // Skin color
-        // Palm
-        g.fillOval(0, 0, 100, 120);
-        // Fingers
-        g.fillRoundRect(5, -60, 20, 70, 10, 10);
-        g.fillRoundRect(30, -70, 20, 80, 10, 10);
-        g.fillRoundRect(55, -65, 20, 75, 10, 10);
-        g.fillRoundRect(80, -50, 20, 60, 10, 10);
-        g.setTransform(old);
-    }
-
-
     // --- โค้ดของฉากใต้น้ำ (แก้ไขสี) ---
     private void drawEvolvingMosquito(Graphics2D g, int x, int y, double progress) {
         AffineTransform old = g.getTransform();
@@ -265,73 +323,214 @@ public class main extends JPanel implements ActionListener {
 
         // --- START: MODIFIED COLOR ---
         // ใช้สีเทาเข้มเหมือนยุงตัวเต็มวัย
-        g.setColor(new Color(40,40,40));
+        g.setColor(new Color(40, 40, 40));
         g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         // --- END: MODIFIED COLOR ---
 
         if (progress < 0.2) {
-             g.drawPolyline(new int[]{x, x+2, x-2, x}, new int[]{y, y-10, y-20, y-30}, 4);
+            g.drawPolyline(new int[] { x, x + 2, x - 2, x }, new int[] { y, y - 10, y - 20, y - 30 }, 4);
         } else {
-            int headSize = (int)(8 * ((progress - 0.2)/0.8));
+            int headSize = (int) (8 * ((progress - 0.2) / 0.8));
             g.fillOval(x - 5, y - 20, 10, 20);
-            g.fillOval(x - headSize/2, y - 20 - headSize/2, headSize, headSize);
+            g.fillOval(x - headSize / 2, y - 20 - headSize / 2, headSize, headSize);
         }
         if (progress > 0.4) {
-            g.setColor(Color.BLACK); g.setStroke(new BasicStroke(1.5f));
-            int legLength = (int)(15 * ((progress - 0.4) / 0.6));
-            g.drawLine(x, y - 15, x - legLength, y - 10); g.drawLine(x, y - 15, x + legLength, y - 10);
-            g.drawLine(x, y - 10, x - legLength, y - 5); g.drawLine(x, y - 10, x + legLength, y - 5);
+            g.setColor(Color.BLACK);
+            g.setStroke(new BasicStroke(1.5f));
+            int legLength = (int) (15 * ((progress - 0.4) / 0.6));
+            g.drawLine(x, y - 15, x - legLength, y - 10);
+            g.drawLine(x, y - 15, x + legLength, y - 10);
+            g.drawLine(x, y - 10, x - legLength, y - 5);
+            g.drawLine(x, y - 10, x + legLength, y - 5);
         }
         if (progress > 0.6) {
-            int wingSize = (int)(25 * ((progress - 0.6) / 0.4));
-            int wingAlpha = (int)(150 * ((progress - 0.6) / 0.4));
+            int wingSize = (int) (25 * ((progress - 0.6) / 0.4));
+            int wingAlpha = (int) (150 * ((progress - 0.6) / 0.4));
             g.setColor(new Color(200, 200, 200, wingAlpha));
-            boolean flap = (y % 10 < 5); int wingYOffset = flap ? -5 : 0;
+            boolean flap = (y % 10 < 5);
+            int wingYOffset = flap ? -5 : 0;
             g.fillArc(x - wingSize, y - 15 + wingYOffset, wingSize, 15, 0, 180);
             g.fillArc(x, y - 15 + wingYOffset, wingSize, 15, 0, 180);
         }
         g.setTransform(old);
     }
-    private void drawCrackedEgg(Graphics2D g, int offset) { /* ...โค้ดเดิม... */
+
+    private void drawCrackedEgg(Graphics2D g, int offset) {
         Color eggColor = new Color(139, 69, 19, 200);
         g.setColor(eggColor);
-        int x = eggBaseX - 25; int y = eggBaseY; int width = 50; int height = 25;
+        int x = eggBaseX - 25;
+        int y = eggBaseY;
+        int width = 50;
+        int height = 25;
         g.fillArc(x - offset, y, width, height, 90, 180);
         g.fillArc(x + offset, y, width, height, 270, 180);
     }
-    private void drawMosquitoEgg(Graphics2D g) { /* ...โค้ดเดิม... */
+
+    private void drawMosquitoEgg(Graphics2D g) {
         Color eggColor = new Color(139, 69, 19, 200);
         g.setColor(eggColor);
-        int swingX = 0; if (frameCount > 60) { double sineValue = Math.sin(eggSwingAngle * 20); swingX = (int) (10 * Math.signum(sineValue)); }
-        int x = eggBaseX - 25 + swingX; int y = eggBaseY; int width = 50; int height = 25;
+        int swingX = 0;
+        if (frameCount > 60) {
+            double sineValue = Math.sin(eggSwingAngle * 20);
+            swingX = (int) (10 * Math.signum(sineValue));
+        }
+        int x = eggBaseX - 25 + swingX;
+        int y = eggBaseY;
+        int width = 50;
+        int height = 25;
         g.fillOval(x, y, width, height);
     }
+
     private void drawBottomGround(Graphics2D g) { /* ...โค้ดเดิม... */
-        int groundHeight = 80; int yStart = HEIGHT - groundHeight;
-        g.setColor(new Color(194, 178, 128)); g.fillRect(0, yStart, WIDTH, groundHeight);
+        int groundHeight = 80;
+        int yStart = HEIGHT - groundHeight;
+        g.setColor(new Color(194, 178, 128));
+        g.fillRect(0, yStart, WIDTH, groundHeight);
         g.setColor(new Color(120, 120, 120));
-        for (int i = 0; i < 15; i++) { int x = 20 + i * 40; int size = 10 + (i % 3) * 5; g.fillOval(x, yStart + 20 + (i % 2) * 10, size, size); }
+        for (int i = 0; i < 15; i++) {
+            int x = 20 + i * 40;
+            int size = 10 + (i % 3) * 5;
+            g.fillOval(x, yStart + 20 + (i % 2) * 10, size, size);
+        }
     }
+
     private void manageBubbles(Graphics2D g) { /* ...โค้ดเดิม... */
         if (rand.nextInt(5) == 0 && bubbles.size() < 50) {
-            int x = rand.nextInt(WIDTH - 40) + 20; int size = rand.nextInt(15) + 10; double speed = 1 + rand.nextDouble() * 2;
+            int x = rand.nextInt(WIDTH - 40) + 20;
+            int size = rand.nextInt(15) + 10;
+            double speed = 1 + rand.nextDouble() * 2;
             bubbles.add(new Bubble(x, HEIGHT - size - 10, size, speed));
         }
         Iterator<Bubble> iter = bubbles.iterator();
-        while (iter.hasNext()) { Bubble b = iter.next(); b.update(); if (b.alpha <= 0) iter.remove(); else b.draw(g); }
+        while (iter.hasNext()) {
+            Bubble b = iter.next();
+            b.update();
+            if (b.alpha <= 0)
+                iter.remove();
+            else
+                b.draw(g);
+        }
     }
+
     private class Bubble { /* ...โค้ดเดิม... */
-        int x, y, size; double speed; float alpha;
-        Bubble(int x, int y, int size, double speed) { this.x = x; this.y = y; this.size = size; this.speed = speed; this.alpha = 1.0f; }
-        void update() { y -= speed; if (y <= 100) { alpha -= 0.02f; if (alpha < 0) alpha = 0;} }
+        int x, y, size;
+        double speed;
+        float alpha;
+
+        Bubble(int x, int y, int size, double speed) {
+            this.x = x;
+            this.y = y;
+            this.size = size;
+            this.speed = speed;
+            this.alpha = 1.0f;
+        }
+
+        void update() {
+            y -= speed;
+            if (y <= 100) {
+                alpha -= 0.02f;
+                if (alpha < 0)
+                    alpha = 0;
+            }
+        }
+
         void draw(Graphics2D g) {
-            Composite original = g.getComposite(); g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-            g.setColor(Color.WHITE); drawMidpointCircle(g, x, y, size / 2);
-            g.setColor(new Color(255, 255, 255, (int) (alpha * 150))); g.fillOval(x - size / 4, y - size / 3, size / 4, size / 4);
+            Composite original = g.getComposite();
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            g.setColor(Color.WHITE);
+            drawMidpointCircle(g, x, y, size / 2);
+            g.setColor(new Color(255, 255, 255, (int) (alpha * 150)));
+            g.fillOval(x - size / 4, y - size / 3, size / 4, size / 4);
             g.setComposite(original);
         }
-        void drawMidpointCircle(Graphics g, int xc, int yc, int r) { int x = 0, y = r, d = 1 - r; plotCirclePoints(g, xc, yc, x, y); while (x < y) { if (d < 0) d += 2 * x + 3; else { d += 2 * (x - y) + 5; y--; } x++; plotCirclePoints(g, xc, yc, x, y); } }
-        void plotCirclePoints(Graphics g, int xc, int yc, int x, int y) { g.fillRect(xc + x, yc + y, 1, 1); g.fillRect(xc - x, yc + y, 1, 1); g.fillRect(xc + x, yc - y, 1, 1); g.fillRect(xc - x, yc - y, 1, 1); g.fillRect(xc + y, yc + x, 1, 1); g.fillRect(xc - y, yc + x, 1, 1); g.fillRect(xc + y, yc - x, 1, 1); g.fillRect(xc - y, yc - x, 1, 1); }
+
+        void drawMidpointCircle(Graphics g, int xc, int yc, int r) {
+            int x = 0, y = r, d = 1 - r;
+            plotCirclePoints(g, xc, yc, x, y);
+            while (x < y) {
+                if (d < 0)
+                    d += 2 * x + 3;
+                else {
+                    d += 2 * (x - y) + 5;
+                    y--;
+                }
+                x++;
+                plotCirclePoints(g, xc, yc, x, y);
+            }
+        }
+
+        void plotCirclePoints(Graphics g, int xc, int yc, int x, int y) {
+            g.fillRect(xc + x, yc + y, 1, 1);
+            g.fillRect(xc - x, yc + y, 1, 1);
+            g.fillRect(xc + x, yc - y, 1, 1);
+            g.fillRect(xc - x, yc - y, 1, 1);
+            g.fillRect(xc + y, yc + x, 1, 1);
+            g.fillRect(xc - y, yc + x, 1, 1);
+            g.fillRect(xc + y, yc - x, 1, 1);
+            g.fillRect(xc - y, yc - x, 1, 1);
+        }
+    }
+
+    private class Heart {
+        int x, y, size;
+        boolean visible = true;
+        double speed;
+        int blinkCounter = 0;
+        int blinkRate = 15; // lower = faster
+
+        Heart(double x, double y, int size, double speed) {
+            this.x = (int) x;
+            this.y = (int) y;
+            this.size = size;
+            this.speed = speed;
+        }
+
+        void update() {
+            // y -= speed;
+
+            blinkCounter++;
+            if (blinkCounter >= blinkRate) {
+                visible = !visible;
+                blinkCounter = 0;
+            }
+        }
+
+        void draw(Graphics2D g) {
+            if (!visible)
+                return;
+
+            g.setColor(Color.RED);
+            drawHeartShape(g, x, y, size);
+        }
+
+        void drawHeartShape(Graphics2D g, int cx, int cy, int size) {
+            double scale = size / 100.0;
+            Path2D.Double heart = new Path2D.Double();
+
+            // จุดเริ่มต้น
+            heart.moveTo(50, 30);
+
+            // ซีกขวาของหัวใจ
+            heart.curveTo(50, 0, 90, 0, 90, 30);
+            heart.curveTo(90, 60, 50, 80, 50, 100);
+
+            // ซีกซ้ายของหัวใจ
+            heart.curveTo(50, 80, 10, 60, 10, 30);
+            heart.curveTo(10, 0, 50, 0, 50, 30);
+
+            heart.closePath();
+
+            AffineTransform transform = new AffineTransform();
+            transform.translate(cx, cy);
+            transform.scale(scale, scale);
+            Shape transformedHeart = transform.createTransformedShape(heart);
+
+            g.fill(transformedHeart);
+            g.setColor(Color.RED.darker());
+            g.setStroke(new BasicStroke(2f));
+            g.draw(transformedHeart);
+        }
+
     }
 
     public static void main(String[] args) {
