@@ -26,10 +26,13 @@ public class main extends JPanel implements ActionListener {
 
     // Air scene state
     private double mosquitoX_air, mosquitoY_air;
-    private int dogButtX;
-    private int landingTimer = 0;
-    private Point handPosition;
-    private double fallSpeed = 0;
+    private double femaleMosquitoX, femaleMosquitoY;
+    private double meetingX, meetingY;
+    private Heart heart;
+    double meteorX, meteorY;
+    private double meteorSpeedY = 10;
+    private boolean meteorHit = false;
+    ArrayList<Integer> cloudSpeeds = new ArrayList<>();
 
     public main() {
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
@@ -42,8 +45,27 @@ public class main extends JPanel implements ActionListener {
         clouds = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
             clouds.add(new Point(rand.nextInt(WIDTH), rand.nextInt(200) + 50));
+            cloudSpeeds.add(1 + rand.nextInt(3)); // ความเร็ว 1-3 pixel/frame
         }
-        handPosition = new Point(WIDTH, -200);
+        // กำหนดตำแหน่งกลางจอ (ตรงกลางและไม่ซ้ำกับตำแหน่งยุงตัวเมียเก่า)
+        meetingX = WIDTH / 2.0;
+        meetingY = 150;
+        // กำหนดตำแหน่งยุงตัวเมีย (ประมาณกลางจอด้านขวา)
+        femaleMosquitoX = (meetingX + 60);
+        femaleMosquitoY = meetingY;
+
+        // เริ่มบินจากซ้ายออกนอกจอ
+        // ให้ยุงตัวผู้ซ้ายกว่ากึ่งกลางประมาณ 30 pixel
+        mosquitoX_air = meetingX - 60;
+        mosquitoY_air = meetingY;
+
+        // หัวใจอยู่ตรงกลางระหว่างสองยุง (meetingX, meetingY)
+        heart = new Heart((femaleMosquitoX + mosquitoX_air) / 2, meetingY, 30, 0);
+
+        // เริ่มตำแหน่งอุกาบาตนอกจอ
+        meteorX = mosquitoX_air; // เริ่มที่ตัวผู้
+        meteorY = mosquitoY_air - 100; // อยู่สูงกว่ายุงตัวผู้เล็กน้อย (เริ่มนอกจอ)
+
     }
 
     @Override
@@ -55,16 +77,16 @@ public class main extends JPanel implements ActionListener {
     private void drawScene(Graphics2D g) {
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        // --- วาดพื้นหลังตามฉาก ---
-        if (sceneState <= 1 || sceneState == 5) { // ฉากใต้น้ำ หรือ ฉากกำลังตกน้ำ
-            g.setColor(new Color(10, 40, 80));
+        // พื้นหลัง
+        if (sceneState <= 1 || sceneState == 5) { // ใต้น้ำ หรือ กำลังตกน้ำ
+            g.setColor(new Color(70, 130, 150));
             g.fillRect(0, 0, WIDTH, HEIGHT);
             drawBottomGround(g);
             manageBubbles(g);
-            if (sceneState == 5) { // ถ้ากำลังตก ให้วาดฟ้าครึ่งบน
+            if (sceneState == 5) {
                 drawSkyBackground(g, (int) mosquitoY_air);
             }
-        } else { // ฉากบนฟ้า
+        } else {
             drawSkyBackground(g, 0);
         }
 
@@ -77,24 +99,40 @@ public class main extends JPanel implements ActionListener {
                 drawCrackedEgg(g, shellOffset);
                 drawEvolvingMosquito(g, eggBaseX, (int) mosquitoY, progress);
             }
-            case 2 -> { // บินบนฟ้า
+            case 2 -> {
                 drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, true, 0);
-                drawDogButt(g, dogButtX);
+                drawFemaleMosquito(g, (int) femaleMosquitoX, (int) femaleMosquitoY);
             }
-            case 3 -> { // ลงจอดแล้ว
-                drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, false, 0); // ไม่กระพือปีก
-                drawDogButt(g, dogButtX);
-            }
-            case 4 -> { // กำลังจะโดนตบ
+            case 3 -> {
                 drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, false, 0);
-                drawDogButt(g, dogButtX);
-                drawHand(g, handPosition.x, handPosition.y);
+                drawFemaleMosquito(g, (int) femaleMosquitoX, (int) femaleMosquitoY);
+                int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2);
+                int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2);
+                heart.x = heartX;
+                heart.y = heartY;
+                heart.draw(g);
             }
-            case 5 -> { // ตกน้ำ
-                drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, false, 45); // หมุนตอนตก
-                drawDogButt(g, dogButtX);
+            case 4 -> {
+                // วาดเหมือน scene 3 แต่เพิ่มอุกาบาต
+                drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, false, 0);
+                drawFemaleMosquito(g, (int) femaleMosquitoX, (int) femaleMosquitoY);
+                int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2);
+                int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2);
+                heart.x = heartX;
+                heart.y = heartY;
+                heart.draw(g);
+                drawMeteor(g, meteorX, meteorY);
+
+            }
+            case 5 -> {
+                // วาดผลหลังชน เช่น ตัวผู้โดนกระแทก
+                drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, false, 0);
+                drawFemaleMosquito(g, (int) femaleMosquitoX, (int) femaleMosquitoY);
+                drawMeteor(g, meteorX, meteorY);
+
             }
         }
+
     }
 
     @Override
@@ -115,73 +153,122 @@ public class main extends JPanel implements ActionListener {
                 mosquitoY -= 1.5;
                 if (shellOffset < 25)
                     shellOffset++;
-                if (mosquitoY < 80) { // เมื่อลอยขึ้นสุด
-                    sceneState = 2; // เปลี่ยนเป็นฉากบิน
-                    mosquitoX_air = -40; // เริ่มจากนอกจอด้านซ้าย
-                    mosquitoY_air = 150;
-                    dogButtX = WIDTH; // เริ่มจากนอกจอด้านขวา
+                if (mosquitoY < 80) {
+                    sceneState = 2; // บินขึ้นฟ้า
+                    mosquitoX_air = -40;
+                    mosquitoY_air = meetingY;
                 }
             }
-            case 2 -> { // บินหาเป้าหมาย
-                mosquitoX_air += 3.0;
-                mosquitoY_air += Math.sin(frameCount * 0.1) * 2; // บินขึ้นลงเล็กน้อย
-                if (dogButtX > WIDTH - 250)
-                    dogButtX -= 2; // ก้นหมาโผล่มา
+            case 2 -> { // บินหาเป้าหมาย (บินไปตำแหน่ง mosquitoX_target, meetingY)
+                double targetX = meetingX - 30;
+                if (mosquitoX_air < targetX) {
+                    mosquitoX_air += 3.0;
 
-                // ตรวจสอบการลงจอด
-                if (mosquitoX_air > dogButtX + 40) {
-                    sceneState = 3;
-                    // ปรับตำแหน่งยุงให้เกาะพอดี
-                    mosquitoX_air = dogButtX + 60;
-                    mosquitoY_air = 320;
-                    landingTimer = frameCount; // เริ่มจับเวลาตอนลงจอด
-                }
-            }
-            case 3 -> { // ลงจอดแล้ว
-                // อยู่เฉยๆ 2 วิ (60 เฟรม) แล้วมือจะมา
-                if (frameCount > landingTimer + 60) {
-                    sceneState = 4;
-                    handPosition.x = (int) mosquitoX_air - 50;
-                    handPosition.y = -200;
-                }
-            }
-            case 4 -> { // มือมาตบ
-                if (handPosition.y < mosquitoY_air - 150) {
-                    handPosition.y += 25; // มือเลื่อนลงมา
+                    // ให้ทั้งตัวผู้และตัวเมียแกว่งพร้อมกัน
+                    double deltaY = Math.sin(frameCount * 0.1) * 2;
+                    mosquitoY_air = meetingY + deltaY;
+                    femaleMosquitoY = meetingY + deltaY;
+
                 } else {
-                    // ตบ!
-                    sceneState = 5;
-                    fallSpeed = 0;
+                    mosquitoX_air = targetX;
+                    mosquitoY_air = meetingY;
+                    femaleMosquitoY = meetingY;
+
+                    sceneState = 3;
+                    frameCount = 0;
+                    heart.visible = true;
+                    heart.blinkCounter = 0;
                 }
             }
-            case 5 -> { // ยุงตก
-                fallSpeed += 0.5; // ความเร่ง
-                mosquitoY_air += fallSpeed;
-                mosquitoX_air -= 1;
 
-                // เมื่อตกถึงพื้นน้ำ
-                if (mosquitoY_air > HEIGHT) {
-                    // Reset all
+            case 3 -> {
+                int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2);
+                int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2);
+                heart.x = heartX;
+                heart.y = heartY;
+                heart.update();
+
+                if (frameCount > 120) {
+                    sceneState = 4;
+                    meteorX = mosquitoX_air;
+                    meteorY = -100;
+                    meteorHit = false;
+                    frameCount = 0;
+                }
+
+            }
+
+            case 4 -> {
+                meteorY += meteorSpeedY;
+                if (meteorY >= mosquitoY_air) {
+                    meteorHit = true;
+                    frameCount++;
+                    if (frameCount > 15) {
+                        sceneState = 5;
+                        frameCount = 0;
+                    }
+                }
+            }
+            case 5 -> {
+                mosquitoY_air += 5;
+                meteorY += 5;
+                if (mosquitoY_air > eggBaseY) {
                     frameCount = 0;
                     sceneState = 0;
                     eggSwingAngle = 0;
                     bubbles.clear();
-                    handPosition = new Point(WIDTH, -200);
+                    heart.visible = false;
+                    meteorX = -100;
+                    meteorY = -100;
                 }
             }
         }
 
-        // อัปเดตก้อนเมฆ
-        if (sceneState >= 2 && sceneState != 5) {
-            for (Point cloud : clouds) {
-                cloud.x -= 1;
+        // อัปเดตก้อนเมฆ เฉพาะสถานะที่บิน (2,3,4)
+        if (sceneState == 2 || sceneState == 3 || sceneState == 4) {
+            for (int i = 0; i < clouds.size(); i++) {
+                Point cloud = clouds.get(i);
+                int speed = cloudSpeeds.get(i);
+                cloud.x -= speed;
                 if (cloud.x < -150) {
                     cloud.x = WIDTH + 20;
-                    cloud.y = rand.nextInt(200) + 50;
+                    cloud.y = rand.nextInt(150) + 30;
                 }
             }
         }
         repaint();
+    }
+
+    // เพิ่ม method วาดยุงตัวเมียและหัวใจ
+    private void drawFemaleMosquito(Graphics2D g, double x, double y) {
+        AffineTransform old = g.getTransform();
+        g.translate(x, y);
+
+        g.setColor(new Color(100, 20, 20)); // สีเข้มกว่ายุงตัวผู้
+        g.fillOval(-5, -20, 10, 20); // ลำตัว
+        g.fillOval(-4, -24, 8, 8); // หัว
+
+        g.setColor(Color.BLACK);
+        g.setStroke(new BasicStroke(1.5f));
+        g.drawLine(0, -15, -15, -10);
+        g.drawLine(0, -15, 15, -10);
+        g.drawLine(0, -10, -15, -5);
+        g.drawLine(0, -10, 15, -5);
+
+        g.setTransform(old);
+    }
+
+    private void drawMeteor(Graphics2D g, double x, double y) {
+        AffineTransform old = g.getTransform();
+        g.translate(x, y);
+
+        g.setColor(new Color(150, 75, 0));
+        g.fillOval(0, 0, 40, 40);
+
+        g.setColor(Color.ORANGE);
+        g.fillOval(5, 5, 30, 30);
+
+        g.setTransform(old);
     }
 
     // --- เมธอดวาดฉากใหม่ ---
@@ -199,7 +286,7 @@ public class main extends JPanel implements ActionListener {
         }
     }
 
-    private void drawFlyingMosquito(Graphics2D g, int x, int y, boolean flapping, double angle) {
+    private void drawFlyingMosquito(Graphics2D g, double x, double y, boolean flapping, double angle) {
         AffineTransform old = g.getTransform();
         g.translate(x, y);
         g.rotate(Math.toRadians(angle));
@@ -226,37 +313,6 @@ public class main extends JPanel implements ActionListener {
             g.fillArc(0, -15 + wingYOffset, 25, 15, 0, 180);
         }
 
-        g.setTransform(old);
-    }
-
-    private void drawDogButt(Graphics2D g, int x) {
-        AffineTransform old = g.getTransform();
-        g.translate(x, 250);
-
-        // บั้นท้าย
-        g.setColor(new Color(210, 180, 140)); // Tan
-        g.fillOval(0, 0, 100, 120);
-        g.fillOval(80, 0, 100, 120);
-
-        // หาง
-        g.setColor(new Color(160, 82, 45)); // Sienna
-        g.setStroke(new BasicStroke(8, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-        g.drawArc(150, 40, 50, 80, 180, 120);
-
-        g.setTransform(old);
-    }
-
-    private void drawHand(Graphics2D g, int x, int y) {
-        AffineTransform old = g.getTransform();
-        g.translate(x, y);
-        g.setColor(new Color(255, 224, 189)); // Skin color
-        // Palm
-        g.fillOval(0, 0, 100, 120);
-        // Fingers
-        g.fillRoundRect(5, -60, 20, 70, 10, 10);
-        g.fillRoundRect(30, -70, 20, 80, 10, 10);
-        g.fillRoundRect(55, -65, 20, 75, 10, 10);
-        g.fillRoundRect(80, -50, 20, 60, 10, 10);
         g.setTransform(old);
     }
 
@@ -299,8 +355,7 @@ public class main extends JPanel implements ActionListener {
         g.setTransform(old);
     }
 
-
-    private void drawCrackedEgg(Graphics2D g, int offset) { /* ...โค้ดเดิม... */
+    private void drawCrackedEgg(Graphics2D g, int offset) {
         Color eggColor = new Color(139, 69, 19, 200);
         g.setColor(eggColor);
         int x = eggBaseX - 25;
@@ -311,7 +366,7 @@ public class main extends JPanel implements ActionListener {
         g.fillArc(x + offset, y, width, height, 270, 180);
     }
 
-    private void drawMosquitoEgg(Graphics2D g) { /* ...โค้ดเดิม... */
+    private void drawMosquitoEgg(Graphics2D g) {
         Color eggColor = new Color(139, 69, 19, 200);
         g.setColor(eggColor);
         int swingX = 0;
@@ -416,43 +471,53 @@ public class main extends JPanel implements ActionListener {
         }
     }
 
-    private class Heart{
+    private class Heart {
         int x, y, size;
         boolean visible = true;
         double speed;
         int blinkCounter = 0;
-        int blinkRate = 15; //lower = faster
+        int blinkRate = 15; // lower = faster
 
-        Heart(int x, int y, int size, double speed){
-            this.x = x;
-            this.y = y;
+        Heart(double x, double y, int size, double speed) {
+            this.x = (int) x;
+            this.y = (int) y;
             this.size = size;
             this.speed = speed;
         }
-        
-        void update(){
+
+        void update() {
             // y -= speed;
 
-            blinkCounter ++;
-            if(blinkCounter >= blinkRate){
+            blinkCounter++;
+            if (blinkCounter >= blinkRate) {
                 visible = !visible;
                 blinkCounter = 0;
             }
         }
 
-        void draw(Graphics2D g){
-            if(!visible) return;
+        void draw(Graphics2D g) {
+            if (!visible)
+                return;
 
             g.setColor(Color.RED);
             drawHeartShape(g, x, y, size);
         }
 
-        void drawHeartShape(Graphics2D g, int cx, int cy, int size){
+        void drawHeartShape(Graphics2D g, int cx, int cy, int size) {
             double scale = size / 100.0;
             Path2D.Double heart = new Path2D.Double();
-            heart.moveTo(50, -50);
-            heart.curveTo(50, -100, 100, 0, 0, 100);
-            heart.curveTo(-100, 0, -50, -100, 0, -50);
+
+            // จุดเริ่มต้น
+            heart.moveTo(50, 30);
+
+            // ซีกขวาของหัวใจ
+            heart.curveTo(50, 0, 90, 0, 90, 30);
+            heart.curveTo(90, 60, 50, 80, 50, 100);
+
+            // ซีกซ้ายของหัวใจ
+            heart.curveTo(50, 80, 10, 60, 10, 30);
+            heart.curveTo(10, 0, 50, 0, 50, 30);
+
             heart.closePath();
 
             AffineTransform transform = new AffineTransform();
@@ -461,11 +526,10 @@ public class main extends JPanel implements ActionListener {
             Shape transformedHeart = transform.createTransformedShape(heart);
 
             g.fill(transformedHeart);
-            g.setColor(Color.RED);
-            g.setStroke(new BasicStroke());
+            g.setColor(Color.RED.darker());
+            g.setStroke(new BasicStroke(2f));
             g.draw(transformedHeart);
         }
-
 
     }
 
