@@ -63,7 +63,7 @@ public class main extends JPanel implements ActionListener {
         heart = new Heart((femaleMosquitoX + mosquitoX_air) / 2, meetingY, 30, 0);
 
         // เริ่มตำแหน่งอุกาบาตนอกจอ
-        meteorX = mosquitoX_air; // เริ่มที่ตัวผู้
+        meteorX = mosquitoX_air - 360; // เริ่มที่ตัวผู้
         meteorY = mosquitoY_air - 100; // อยู่สูงกว่ายุงตัวผู้เล็กน้อย (เริ่มนอกจอ)
 
     }
@@ -104,7 +104,7 @@ public class main extends JPanel implements ActionListener {
                 drawFemaleMosquito(g, (int) femaleMosquitoX, (int) femaleMosquitoY);
             }
             case 3 -> {
-                drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, false, 0);
+                drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, true, 0);
                 drawFemaleMosquito(g, (int) femaleMosquitoX, (int) femaleMosquitoY);
                 int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2) - 15;
                 int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2) - 25;
@@ -114,7 +114,7 @@ public class main extends JPanel implements ActionListener {
             }
             case 4 -> {
                 // วาดเหมือน scene 3 แต่เพิ่มอุกาบาต
-                drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, false, 0);
+                drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, true, 0);
                 drawFemaleMosquito(g, (int) femaleMosquitoX, (int) femaleMosquitoY);
                 int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2) - 15;
                 int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2) - 25;
@@ -554,7 +554,7 @@ public class main extends JPanel implements ActionListener {
     }
 
     public static void main(String[] args) {
-        JFrame frame = new JFrame("The Great Mosquito Adventure (Modified)");
+        JFrame frame = new JFrame("The Great Mosquito Adventure");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setResizable(false);
         frame.add(new main());
