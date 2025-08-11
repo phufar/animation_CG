@@ -106,8 +106,8 @@ public class main extends JPanel implements ActionListener {
             case 3 -> {
                 drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, false, 0);
                 drawFemaleMosquito(g, (int) femaleMosquitoX, (int) femaleMosquitoY);
-                int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2);
-                int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2);
+                int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2) - 15;
+                int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2) - 25;
                 heart.x = heartX;
                 heart.y = heartY;
                 heart.draw(g);
@@ -116,8 +116,8 @@ public class main extends JPanel implements ActionListener {
                 // วาดเหมือน scene 3 แต่เพิ่มอุกาบาต
                 drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, false, 0);
                 drawFemaleMosquito(g, (int) femaleMosquitoX, (int) femaleMosquitoY);
-                int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2);
-                int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2);
+                int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2) - 15;
+                int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2) - 25;
                 heart.x = heartX;
                 heart.y = heartY;
                 heart.draw(g);
@@ -182,8 +182,8 @@ public class main extends JPanel implements ActionListener {
             }
 
             case 3 -> {
-                int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2);
-                int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2);
+                int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2) - 15;
+                int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2) - 25;
                 heart.x = heartX;
                 heart.y = heartY;
                 heart.update();
@@ -261,12 +261,32 @@ public class main extends JPanel implements ActionListener {
     private void drawMeteor(Graphics2D g, double x, double y) {
         AffineTransform old = g.getTransform();
         g.translate(x, y);
+        int size = 300; // Meteor diameter
 
-        g.setColor(new Color(150, 75, 0));
-        g.fillOval(0, 0, 40, 40);
+        // Tail effect above meteor (orange to transparent)
+        GradientPaint tail = new GradientPaint(
+                size / 2, -size * 2, new Color(255, 140, 0, 180), // Start (bright)
+                size / 2, 0, new Color(255, 140, 0, 0) // End (transparent at meteor)
+        );
+        g.setPaint(tail);
+        g.fillOval(size / 3, -size * 2, size / 3, size * 2); // Vertical oval tail above meteor
 
-        g.setColor(Color.ORANGE);
-        g.fillOval(5, 5, 30, 30);
+        // Meteor body gradient
+        GradientPaint body = new GradientPaint(
+                0, 0, new Color(100, 50, 0),
+                size, size, new Color(180, 90, 40));
+        g.setPaint(body);
+        g.fillOval(0, 0, size, size);
+
+        // Inner heated core
+        g.setColor(new Color(255, 100, 0, 200));
+        g.fillOval(size / 8, size / 8, size * 3 / 4, size * 3 / 4);
+
+        // Big craters
+        g.setColor(new Color(50, 25, 0));
+        g.fillOval(size / 3, size / 3, size / 10, size / 10);
+        g.fillOval(size / 2, size / 4, size / 8, size / 8);
+        g.fillOval(size / 4, size / 2, size / 12, size / 12);
 
         g.setTransform(old);
     }
