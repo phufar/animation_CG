@@ -63,7 +63,7 @@ public class main extends JPanel implements ActionListener {
         heart = new Heart((femaleMosquitoX + mosquitoX_air) / 2, meetingY, 30, 0);
 
         // เริ่มตำแหน่งอุกาบาตนอกจอ
-        meteorX = mosquitoX_air - 360; // เริ่มที่ตัวผู้
+        meteorX = mosquitoX_air; // เริ่มที่ตัวผู้
         meteorY = mosquitoY_air - 100; // อยู่สูงกว่ายุงตัวผู้เล็กน้อย (เริ่มนอกจอ)
 
     }
@@ -101,13 +101,13 @@ public class main extends JPanel implements ActionListener {
             }
             case 2 -> {
                 drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, true, 0);
-                drawFemaleMosquito(g, (int) femaleMosquitoX, (int) femaleMosquitoY);
+                drawFemaleMosquito(g, (int) femaleMosquitoX+60, (int) femaleMosquitoY);
             }
             case 3 -> {
                 drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, true, 0);
-                drawFemaleMosquito(g, (int) femaleMosquitoX, (int) femaleMosquitoY);
-                int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2) - 15;
-                int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2) - 25;
+                drawFemaleMosquito(g, (int) femaleMosquitoX+60, (int) femaleMosquitoY);
+                int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2 + 10) ;
+                int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2) - 50;
                 heart.x = heartX;
                 heart.y = heartY;
                 heart.draw(g);
@@ -115,21 +115,20 @@ public class main extends JPanel implements ActionListener {
             case 4 -> {
                 // วาดเหมือน scene 3 แต่เพิ่มอุกาบาต
                 drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, true, 0);
-                drawFemaleMosquito(g, (int) femaleMosquitoX, (int) femaleMosquitoY);
-                int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2) - 15;
-                int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2) - 25;
+                drawFemaleMosquito(g, (int) femaleMosquitoX+60, (int) femaleMosquitoY);
+                int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2 + 10) ;
+                int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2) - 50;
                 heart.x = heartX;
                 heart.y = heartY;
                 heart.draw(g);
-                drawMeteor(g, meteorX, meteorY);
+                drawMeteor(g, meteorX-150, meteorY);
 
             }
             case 5 -> {
                 // วาดผลหลังชน เช่น ตัวผู้โดนกระแทก
                 drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, false, 0);
-                drawFemaleMosquito(g, (int) femaleMosquitoX, (int) femaleMosquitoY);
-                drawMeteor(g, meteorX, meteorY);
-
+                drawFemaleMosquito(g, (int) femaleMosquitoX+60, (int) femaleMosquitoY);
+                drawMeteor(g, meteorX-150, meteorY);
             }
         }
 
@@ -212,7 +211,7 @@ public class main extends JPanel implements ActionListener {
             case 5 -> {
                 mosquitoY_air += 5;
                 meteorY += 5;
-                if (mosquitoY_air > eggBaseY) {
+                if (mosquitoY_air == eggBaseY) {
                     frameCount = 0;
                     sceneState = 0;
                     eggSwingAngle = 0;
@@ -254,6 +253,11 @@ public class main extends JPanel implements ActionListener {
         g.drawLine(0, -15, 15, -10);
         g.drawLine(0, -10, -15, -5);
         g.drawLine(0, -10, 15, -5);
+
+        g.setColor(new Color(200, 200, 200));
+        int wingYOffset = (frameCount % 6 < 3) ? -5 : 0;
+        g.fillArc(-25, -15 + wingYOffset, 25, 15, 0, 180);
+        g.fillArc(0, -15 + wingYOffset, 25, 15, 0, 180);
 
         g.setTransform(old);
     }
@@ -338,6 +342,7 @@ public class main extends JPanel implements ActionListener {
 
     // --- โค้ดของฉากใต้น้ำ (แก้ไขสี) ---
     private void drawEvolvingMosquito(Graphics2D g, int x, int y, double progress) {
+        x = x-25;
         AffineTransform old = g.getTransform();
         g.rotate(Math.sin(y * 0.1) * 0.1, x, y);
 
@@ -346,7 +351,7 @@ public class main extends JPanel implements ActionListener {
         g.setColor(new Color(40, 40, 40));
         g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         // --- END: MODIFIED COLOR ---
-
+        
         if (progress < 0.2) {
             g.drawPolyline(new int[] { x, x + 2, x - 2, x }, new int[] { y, y - 10, y - 20, y - 30 }, 4);
         } else {
@@ -378,7 +383,7 @@ public class main extends JPanel implements ActionListener {
     private void drawCrackedEgg(Graphics2D g, int offset) {
         Color eggColor = new Color(139, 69, 19, 200);
         g.setColor(eggColor);
-        int x = eggBaseX - 25;
+        int x = eggBaseX - 50;
         int y = eggBaseY;
         int width = 50;
         int height = 25;
@@ -394,7 +399,7 @@ public class main extends JPanel implements ActionListener {
             double sineValue = Math.sin(eggSwingAngle * 20);
             swingX = (int) (10 * Math.signum(sineValue));
         }
-        int x = eggBaseX - 25 + swingX;
+        int x = eggBaseX - 50 + swingX;
         int y = eggBaseY;
         int width = 50;
         int height = 25;
