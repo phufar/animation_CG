@@ -16,7 +16,18 @@ public class main extends JPanel implements ActionListener {
 
     // --- State Variables ---
     private int frameCount = 0;
-    private int sceneState = 0; // 0: Egg, 1: Evolving, 2: Flying, 3: Landed, 4: Swatted, 5: Falling
+    private int sceneState = -1; // -1 : intro,0: Egg, 1: Evolving, 2: Flying, 3: Landed, 4: Swatted, 5: Falling
+
+    // Intro state
+    private float introAlpha = 0f;
+    private int introStep = 0;
+    private long introStartTime = System.currentTimeMillis();
+    private String[] introTexts = {
+            "I died seeing only the final light\nin my last moments.",
+            "It's time for me to be reborn.",
+            "The last knowledge in my head was that \na male mosquito lives only seven days...\nshort, isn't it?"
+    };
+    private boolean isFlashing = false;
 
     // Underwater state
     private int eggBaseX = 300, eggBaseY = 530;
