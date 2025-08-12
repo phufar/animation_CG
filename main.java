@@ -114,8 +114,8 @@ public class main extends JPanel implements ActionListener {
             case 3 -> {
                 drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, true, 0);
                 drawFemaleMosquito(g, (int) femaleMosquitoX+60, (int) femaleMosquitoY);
-                int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2 + 10) ;
-                int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2) - 50;
+                int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2 + 10);
+                int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2) - 25;
                 heart.x = heartX;
                 heart.y = heartY;
                 heart.draw(g);
@@ -125,7 +125,7 @@ public class main extends JPanel implements ActionListener {
                 drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, true, 0);
                 drawFemaleMosquito(g, (int) femaleMosquitoX+60, (int) femaleMosquitoY);
                 int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2 + 10) ;
-                int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2) - 50;
+                int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2) - 25;
                 heart.x = heartX;
                 heart.y = heartY;
                 heart.draw(g);
