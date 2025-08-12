@@ -26,7 +26,7 @@ public class main extends JPanel implements ActionListener {
     private String[] introTexts = {
             "I died seeing only the final light\nin my last moments.",
             "It's time for me to be reborn.",
-            "The last knowledge in my head was that \na male mosquitolives only seven days...\nshort, isn't it?"
+            "The last knowledge in my head was that \na male mosquito lives only seven days...\nshort, isn't it?"
     };
     private boolean isFlashing = false;
 
