@@ -47,6 +47,12 @@ public class main extends JPanel implements ActionListener {
     ArrayList<Integer> cloudSpeeds = new ArrayList<>();
     private ArrayList<Seaweed> seaweeds;
     private ArrayList<SeaGrass> seaGrasses;
+    
+    // Forest scene variables
+    private ArrayList<Tree> trees;
+    private ArrayList<Bush> bushes;
+    private ArrayList<Bird> birds;
+    private ArrayList<FloatingLeaf> floatingLeaves;
 
     // Falling corpse state
     private double corpseVy = 0;
@@ -117,9 +123,46 @@ public class main extends JPanel implements ActionListener {
             double speed = 0.015 + rand.nextDouble() * 0.02;
             seaGrasses.add(new SeaGrass(baseX, blades, spread, minH, maxH, amp, speed));
         }
+        
+        // Initialize forest elements
+        trees = new ArrayList<>();
+        bushes = new ArrayList<>();
+        birds = new ArrayList<>();
+        floatingLeaves = new ArrayList<>();
+        
+        // Create trees across the bottom
+        int treeCount = 8;
+        for (int i = 0; i < treeCount; i++) {
+            int baseX = 50 + i * (WIDTH - 100) / treeCount + rand.nextInt(40) - 20;
+            int height = 80 + rand.nextInt(60); // Shorter trees so mosquito flies above
+            int trunkWidth = 8 + rand.nextInt(6);
+            trees.add(new Tree(baseX, height, trunkWidth));
+        }
+        
+        // Create bushes between trees
+        int bushCount = 12;
+        for (int i = 0; i < bushCount; i++) {
+            int baseX = 30 + i * (WIDTH - 60) / bushCount + rand.nextInt(30) - 15;
+            int size = 20 + rand.nextInt(25);
+            bushes.add(new Bush(baseX, size));
+        }
+        
+        // Create flying birds
+        for (int i = 0; i < 3; i++) {
+            int startX = rand.nextInt(WIDTH);
+            int startY = 80 + rand.nextInt(100); // Lower height to fly above forest
+            birds.add(new Bird(startX, startY));
+        }
+        
+        // Create floating leaves
+        for (int i = 0; i < 15; i++) {
+            int startX = rand.nextInt(WIDTH);
+            int startY = 150 + rand.nextInt(100);
+            floatingLeaves.add(new FloatingLeaf(startX, startY));
+        }
         // กำหนดตำแหน่งกลางจอ (ตรงกลางและไม่ซ้ำกับตำแหน่งยุงตัวเมียเก่า)
         meetingX = WIDTH / 2.0;
-        meetingY = 150;
+        meetingY = 120; // Lower height to fly above forest
         // กำหนดตำแหน่งยุงตัวเมีย (ประมาณกลางจอด้านขวา)
         femaleMosquitoX = (meetingX + 60);
         femaleMosquitoY = meetingY;
@@ -230,7 +273,7 @@ public class main extends JPanel implements ActionListener {
                 // วาดร่างยุงทั้งสองที่ตายแล้วกำลังตก
                 drawDeadMosquito(g, mosquitoX_air, mosquitoY_air, corpseRotationDeg);
                 drawDeadMosquito(g, femaleMosquitoX + 60, femaleMosquitoY, femaleCorpseRotationDeg);
-                drawMeteor(g, meteorX - 150, meteorY);
+                // Meteor is hidden after explosion, so don't draw it
             }
             case 6 -> {
                 drawExplosion(g, (int) mosquitoX_air, (int) mosquitoY_air);
@@ -360,6 +403,9 @@ public class main extends JPanel implements ActionListener {
                         shakeIntensity = 6.0;
                         shakeFrames = 20;
                         createExplosionParticles();
+                        // Hide meteor after explosion
+                        meteorX = -1000;
+                        meteorY = -1000;
                     }
                 }
             }
@@ -430,27 +476,30 @@ public class main extends JPanel implements ActionListener {
                     explosionRadius = 0;
                 }
 
-                // Big fireball expands quickly, then slows down
-                if (explosionRadius < 220) {
-                    explosionRadius += 8;
-                } else if (explosionRadius < 260) {
-                    explosionRadius += 2;
+                // Big fireball expands quickly, then starts fading
+                if (explosionRadius < 180) {
+                    explosionRadius += 10;
+                } else if (explosionRadius < 220) {
+                    explosionRadius += 4;
+                } else {
+                    // Start shrinking the explosion after reaching max size
+                    explosionRadius = Math.max(0, explosionRadius - 8);
                 }
 
                 // Shockwave ring
-                shockwaveRadius += 12;
-                shockwaveAlpha = Math.max(0f, shockwaveAlpha - 0.04f);
+                shockwaveRadius += 15;
+                shockwaveAlpha = Math.max(0f, shockwaveAlpha - 0.08f);
 
                 // Screen flash fades quickly
                 if (flashAlpha > 0f) {
-                    flashAlpha *= 0.88f;
+                    flashAlpha *= 0.92f;
                     if (flashAlpha < 0.02f)
                         flashAlpha = 0f;
                 }
 
                 // Camera shake decay
                 if (shakeFrames > 0) {
-                    shakeIntensity *= 0.9;
+                    shakeIntensity *= 0.85;
                     shakeFrames--;
                 } else {
                     shakeIntensity = 0;
@@ -468,8 +517,8 @@ public class main extends JPanel implements ActionListener {
                 explosionParticles.removeIf(particle -> particle.alpha <= 0);
                 smokeParticles.removeIf(p -> p.isDead());
 
-                // Longer explosion scene
-                if (frameCount > 90) {
+                // Shorter explosion scene - transition when explosion fades out
+                if (frameCount > 45 || explosionRadius <= 0) {
                     sceneState = 5;
                     frameCount = 0;
                     explosionParticles.clear();
@@ -502,6 +551,11 @@ public class main extends JPanel implements ActionListener {
                     cloud.y = rand.nextInt(150) + 30;
                 }
             }
+        }
+        
+        // In scene 5 (corpse falling), hide clouds since we're underwater
+        if (sceneState == 5) {
+            // Don't draw clouds in underwater scene
         }
         repaint();
     }
@@ -570,11 +624,19 @@ public class main extends JPanel implements ActionListener {
         g.setPaint(skyPaint);
         g.fillRect(0, 0, WIDTH, HEIGHT - waterLevel);
 
-        // ก้อนเมฆ
-        g.setColor(Color.WHITE);
-        for (Point cloud : clouds) {
-            g.fillOval(cloud.x, cloud.y, 100, 40);
-            g.fillOval(cloud.x + 30, cloud.y - 20, 80, 50);
+        // ก้อนเมฆ - only draw if not underwater (scene 5)
+        if (sceneState != 5) {
+            g.setColor(Color.WHITE);
+            for (Point cloud : clouds) {
+                g.fillOval(cloud.x, cloud.y, 100, 40);
+                g.fillOval(cloud.x + 30, cloud.y - 20, 80, 50);
+            }
+        }
+        
+        // Draw forest when mosquito is flying (scenes 2, 3, 4)
+        if (sceneState >= 2 && sceneState <= 4) {
+            drawForest(g);
+            drawBirds(g);
         }
     }
 
@@ -1143,6 +1205,208 @@ public class main extends JPanel implements ActionListener {
             g.setColor(new Color(50, 50, 50));
             g.fillOval((int) (x - size / 2), (int) (y - size / 2), (int) size, (int) size);
             g.setComposite(original);
+        }
+    }
+
+    private void drawForest(Graphics2D g) {
+        // Draw ground/grass line
+        int groundY = HEIGHT - 180; // Higher ground so mosquito flies above trees
+        g.setColor(new Color(34, 139, 34)); // Forest green
+        g.fillRect(0, groundY, WIDTH, HEIGHT - groundY);
+        
+        // Add grass texture
+        g.setColor(new Color(0, 100, 0)); // Darker green for grass
+        for (int i = 0; i < WIDTH; i += 8) {
+            int grassHeight = 3 + rand.nextInt(4);
+            g.drawLine(i, groundY, i, groundY + grassHeight);
+        }
+        
+        // Draw trees
+        for (Tree tree : trees) {
+            tree.draw(g, groundY);
+        }
+        
+        // Draw bushes
+        for (Bush bush : bushes) {
+            bush.draw(g, groundY);
+        }
+        
+        // Draw floating leaves
+        for (FloatingLeaf leaf : floatingLeaves) {
+            leaf.update();
+            leaf.draw(g);
+        }
+    }
+    
+    private void drawBirds(Graphics2D g) {
+        for (Bird bird : birds) {
+            bird.update();
+            bird.draw(g);
+        }
+    }
+
+    private class Tree {
+        int baseX, height, trunkWidth;
+        
+        Tree(int baseX, int height, int trunkWidth) {
+            this.baseX = baseX;
+            this.height = height;
+            this.trunkWidth = trunkWidth;
+        }
+        
+        void draw(Graphics2D g, int groundY) {
+            // Draw tree shadow
+            g.setColor(new Color(0, 0, 0, 30));
+            g.fillOval(baseX - 25, groundY - 10, 50, 20);
+            
+            // Draw trunk
+            g.setColor(new Color(101, 67, 33)); // Brown trunk
+            g.fillRect(baseX - trunkWidth/2, groundY - height + 40, trunkWidth, height - 40);
+            
+            // Draw trunk shadow
+            g.setColor(new Color(0, 0, 0, 40));
+            g.fillRect(baseX - trunkWidth/2 + 2, groundY - height + 40, trunkWidth, height - 40);
+            
+            // Draw foliage (multiple circles for tree crown)
+            g.setColor(new Color(0, 100, 0)); // Dark green
+            g.fillOval(baseX - 35, groundY - height, 70, 60);
+            g.fillOval(baseX - 25, groundY - height + 20, 50, 50);
+            g.fillOval(baseX - 30, groundY - height + 40, 60, 40);
+            
+            // Add lighter green highlights
+            g.setColor(new Color(0, 128, 0));
+            g.fillOval(baseX - 30, groundY - height + 5, 60, 50);
+            g.fillOval(baseX - 20, groundY - height + 25, 40, 35);
+        }
+    }
+    
+    private class Bush {
+        int baseX, size;
+        
+        Bush(int baseX, int size) {
+            this.baseX = baseX;
+            this.size = size;
+        }
+        
+        void draw(Graphics2D g, int groundY) {
+            // Draw bush shadow
+            g.setColor(new Color(0, 0, 0, 25));
+            g.fillOval(baseX - size/2 + 2, groundY - size/2, size, size);
+            
+            g.setColor(new Color(0, 128, 0)); // Medium green
+            g.fillOval(baseX - size/2, groundY - size, size, size);
+            
+            // Add darker green detail
+            g.setColor(new Color(0, 100, 0));
+            g.fillOval(baseX - size/3, groundY - size + size/4, size/2, size/2);
+        }
+    }
+    
+    private class Bird {
+        double x, y;
+        double vx, vy;
+        int wingState = 0;
+        
+        Bird(int startX, int startY) {
+            this.x = startX;
+            this.y = startY;
+            this.vx = 1 + Math.random() * 2;
+            this.vy = Math.sin(System.currentTimeMillis() * 0.001) * 0.5;
+        }
+        
+        void update() {
+            x += vx;
+            y += vy;
+            
+            // Wrap around screen
+            if (x > WIDTH + 50) {
+                x = -50;
+                y = 80 + Math.random() * 100; // Maintain height above forest
+            }
+            
+            // Flap wings
+            wingState = (wingState + 1) % 6;
+        }
+        
+        void draw(Graphics2D g) {
+            AffineTransform old = g.getTransform();
+            g.translate(x, y);
+            
+            // Bird body
+            g.setColor(new Color(139, 69, 19)); // Brown
+            g.fillOval(-8, -4, 16, 8);
+            
+            // Bird head
+            g.fillOval(-12, -6, 8, 8);
+            
+            // Beak
+            g.setColor(new Color(255, 165, 0)); // Orange
+            g.fillPolygon(
+                new int[]{-12, -16, -12},
+                new int[]{-2, -2, 2}, 3
+            );
+            
+            // Wings (flapping animation)
+            g.setColor(new Color(160, 82, 45)); // Saddle brown
+            int wingOffset = wingState < 3 ? -2 : 2;
+            g.fillOval(-15, -2 + wingOffset, 12, 6);
+            g.fillOval(3, -2 + wingOffset, 12, 6);
+            
+            g.setTransform(old);
+        }
+    }
+    
+    private class FloatingLeaf {
+        double x, y;
+        double vx, vy;
+        double rotation;
+        double rotationSpeed;
+        int size;
+        float alpha;
+        
+        FloatingLeaf(int startX, int startY) {
+            this.x = startX;
+            this.y = startY;
+            this.vx = (Math.random() - 0.5) * 0.5;
+            this.vy = Math.random() * 0.3 + 0.2;
+            this.rotation = Math.random() * 360;
+            this.rotationSpeed = (Math.random() - 0.5) * 2;
+            this.size = 8 + (int)(Math.random() * 6);
+            this.alpha = 0.6f + (float)(Math.random() * 0.4f);
+        }
+        
+        void update() {
+            x += vx;
+            y += vy;
+            rotation += rotationSpeed;
+            
+            // Wrap around screen
+            if (x < -20) x = WIDTH + 20;
+            if (x > WIDTH + 20) x = -20;
+            if (y > HEIGHT + 20) {
+                y = -20;
+                x = Math.random() * WIDTH;
+            }
+        }
+        
+        void draw(Graphics2D g) {
+            AffineTransform old = g.getTransform();
+            g.translate(x, y);
+            g.rotate(Math.toRadians(rotation));
+            
+            Composite original = g.getComposite();
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            
+            // Draw leaf shape
+            g.setColor(new Color(0, 100, 0));
+            g.fillOval(-size/2, -size/4, size, size/2);
+            
+            // Add leaf detail
+            g.setColor(new Color(0, 80, 0));
+            g.drawLine(-size/3, 0, size/3, 0);
+            
+            g.setComposite(original);
+            g.setTransform(old);
         }
     }
 
