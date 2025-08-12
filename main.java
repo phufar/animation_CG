@@ -36,8 +36,14 @@ public class main extends JPanel implements ActionListener {
 
     //Explosion state
     private ArrayList<ExplosionParticle> explosionParticles;
+    private ArrayList<SmokeParticle> smokeParticles;
     private int explosionRadius = 0;
     private boolean explosionStarted = false;
+    private int shockwaveRadius = 0;
+    private float shockwaveAlpha = 0f;
+    private float flashAlpha = 0f;
+    private double shakeIntensity = 0.0;
+    private int shakeFrames = 0;
 
     public main() {
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
@@ -47,6 +53,7 @@ public class main extends JPanel implements ActionListener {
 
         // Initialize explosion particles
         explosionParticles = new ArrayList<>();
+        smokeParticles = new ArrayList<>();
 
         // Initialize objects
         bubbles = new ArrayList<>();
@@ -84,6 +91,12 @@ public class main extends JPanel implements ActionListener {
 
     private void drawScene(Graphics2D g) {
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        AffineTransform sceneOld = g.getTransform();
+        if (sceneState == 6 && shakeIntensity > 0) {
+            double sx = (rand.nextDouble() * 2 - 1) * shakeIntensity;
+            double sy = (rand.nextDouble() * 2 - 1) * shakeIntensity;
+            g.translate(sx, sy);
+        }
 
         // พื้นหลัง
         if (sceneState <= 1 || sceneState == 5) { // ใต้น้ำ หรือ กำลังตกน้ำ
@@ -141,9 +154,20 @@ public class main extends JPanel implements ActionListener {
             case 6 -> {
                 drawExplosion(g, (int) mosquitoX_air, (int) mosquitoY_air);
                 drawExplosionParticles(g);
+                drawSmokeParticles(g);
             }
         }
-
+        g.setTransform(sceneOld);
+        // Screen flash overlay on top of everything (not affected by shake)
+        if (flashAlpha > 0f) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            Composite original = g2.getComposite();
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.min(1f, flashAlpha)));
+            g2.setColor(Color.WHITE);
+            g2.fillRect(0, 0, WIDTH, HEIGHT);
+            g2.setComposite(original);
+            g2.dispose();
+        }
     }
 
     @Override
@@ -219,6 +243,11 @@ public class main extends JPanel implements ActionListener {
                         frameCount = 0;
                         explosionStarted = false;
                         explosionRadius = 0;
+                        shockwaveRadius = 20;
+                        shockwaveAlpha = 1.0f;
+                        flashAlpha = 0.9f;
+                        shakeIntensity = 6.0;
+                        shakeFrames = 20;
                         createExplosionParticles();
                     }
                 }
@@ -238,24 +267,57 @@ public class main extends JPanel implements ActionListener {
                 }
             }
             case 6 -> {
-                if(!explosionStarted){
+                if (!explosionStarted) {
                     explosionStarted = true;
                     explosionRadius = 0;
                 }
-                if(explosionRadius < 100){
+
+                // Big fireball expands quickly, then slows down
+                if (explosionRadius < 220) {
+                    explosionRadius += 8;
+                } else if (explosionRadius < 260) {
                     explosionRadius += 2;
                 }
 
-                for(ExplosionParticle particle : explosionParticles){
+                // Shockwave ring
+                shockwaveRadius += 12;
+                shockwaveAlpha = Math.max(0f, shockwaveAlpha - 0.04f);
+
+                // Screen flash fades quickly
+                if (flashAlpha > 0f) {
+                    flashAlpha *= 0.88f;
+                    if (flashAlpha < 0.02f) flashAlpha = 0f;
+                }
+
+                // Camera shake decay
+                if (shakeFrames > 0) {
+                    shakeIntensity *= 0.9;
+                    shakeFrames--;
+                } else {
+                    shakeIntensity = 0;
+                }
+
+                // Update particles
+                for (ExplosionParticle particle : explosionParticles) {
+                    particle.update();
+                }
+                for (SmokeParticle particle : smokeParticles) {
                     particle.update();
                 }
 
+                // Remove dead particles
                 explosionParticles.removeIf(particle -> particle.alpha <= 0);
+                smokeParticles.removeIf(p -> p.isDead());
 
-                if(frameCount > 60){
+                // Longer explosion scene
+                if (frameCount > 90) {
                     sceneState = 5;
                     frameCount = 0;
                     explosionParticles.clear();
+                    smokeParticles.clear();
+                    flashAlpha = 0f;
+                    shockwaveAlpha = 0f;
+                    shakeIntensity = 0;
                 }
             }
         }
@@ -595,18 +657,33 @@ public class main extends JPanel implements ActionListener {
     }
     private void createExplosionParticles() {
         explosionParticles.clear();
+        smokeParticles.clear();
         Random rand = new Random();
         
-        for (int i = 0; i < 50; i++) {
+        // Fiery sparks
+        for (int i = 0; i < 140; i++) {
             double angle = rand.nextDouble() * 2 * Math.PI;
-            double speed = 2 + rand.nextDouble() * 4;
+            double speed = 3 + rand.nextDouble() * 6; // faster
             double vx = Math.cos(angle) * speed;
             double vy = Math.sin(angle) * speed;
             
             explosionParticles.add(new ExplosionParticle(
                 mosquitoX_air, mosquitoY_air, vx, vy, 
-                rand.nextInt(20) + 10, // size
-                rand.nextFloat() * 0.5f + 0.5f // alpha
+                rand.nextInt(12) + 6, // size smaller sparks
+                0.6f + rand.nextFloat() * 0.4f // alpha
+            ));
+        }
+
+        // Smoke puffs
+        for (int i = 0; i < 80; i++) {
+            double angle = rand.nextDouble() * 2 * Math.PI;
+            double speed = 0.5 + rand.nextDouble() * 1.5;
+            double vx = Math.cos(angle) * speed * 0.6;
+            double vy = Math.sin(angle) * speed * 0.6 - (0.5 + rand.nextDouble() * 0.5); // rise
+            smokeParticles.add(new SmokeParticle(
+                mosquitoX_air, mosquitoY_air, vx, vy,
+                18 + rand.nextInt(22), // initial size
+                40 + rand.nextInt(50)  // life
             ));
         }
     }
@@ -632,11 +709,27 @@ public class main extends JPanel implements ActionListener {
             g.setColor(new Color(255, 255, 255, 180));
             g.fillOval(x - explosionRadius/3, y - explosionRadius/3, 
                       explosionRadius * 2/3, explosionRadius * 2/3);
+
+            // Shockwave ring
+            if (shockwaveAlpha > 0f) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, shockwaveAlpha));
+                g2.setColor(new Color(255, 255, 255));
+                g2.setStroke(new BasicStroke(8f));
+                g2.drawOval(x - shockwaveRadius, y - shockwaveRadius, shockwaveRadius * 2, shockwaveRadius * 2);
+                g2.dispose();
+            }
         }
     }
 
     private void drawExplosionParticles(Graphics2D g) {
         for (ExplosionParticle particle : explosionParticles) {
+            particle.draw(g);
+        }
+    }
+
+    private void drawSmokeParticles(Graphics2D g) {
+        for (SmokeParticle particle : smokeParticles) {
             particle.draw(g);
         }
     }
@@ -685,6 +778,52 @@ public class main extends JPanel implements ActionListener {
         }
     }
 
+    private class SmokeParticle {
+        double x, y, vx, vy;
+        double size;
+        double growth = 0.6;
+        float alpha = 0.0f;
+        int life;
+        int age = 0;
+
+        SmokeParticle(double x, double y, double vx, double vy, int startSize, int life) {
+            this.x = x;
+            this.y = y;
+            this.vx = vx;
+            this.vy = vy;
+            this.size = startSize;
+            this.life = life;
+        }
+
+        void update() {
+            x += vx;
+            y += vy;
+            vy *= 0.98; // slow rise
+            size += growth;
+            age++;
+            // fade in then out
+            float half = life / 2f;
+            if (age < half) {
+                alpha = Math.min(0.6f, alpha + 0.03f);
+            } else {
+                alpha = Math.max(0f, alpha - 0.02f);
+            }
+        }
+
+        boolean isDead() {
+            return age >= life || alpha <= 0f;
+        }
+
+        void draw(Graphics2D g) {
+            if (alpha <= 0) return;
+            Composite original = g.getComposite();
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            g.setColor(new Color(50, 50, 50));
+            g.fillOval((int) (x - size / 2), (int) (y - size / 2), (int) size, (int) size);
+            g.setComposite(original);
+        }
+    }
+
     public static void main(String[] args) {
         JFrame frame = new JFrame("The Great Mosquito Adventure");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -695,3 +834,4 @@ public class main extends JPanel implements ActionListener {
         frame.setVisible(true);
     }
 }
+
