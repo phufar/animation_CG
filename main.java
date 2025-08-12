@@ -34,11 +34,19 @@ public class main extends JPanel implements ActionListener {
     private boolean meteorHit = false;
     ArrayList<Integer> cloudSpeeds = new ArrayList<>();
 
+    //Explosion state
+    private ArrayList<ExplosionParticle> explosionParticles;
+    private int explosionRadius = 0;
+    private boolean explosionStarted = false;
+
     public main() {
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
         timer = new Timer(33, this);
         timer.start();
         rand = new Random();
+
+        // Initialize explosion particles
+        explosionParticles = new ArrayList<>();
 
         // Initialize objects
         bubbles = new ArrayList<>();
@@ -130,6 +138,10 @@ public class main extends JPanel implements ActionListener {
                 drawFemaleMosquito(g, (int) femaleMosquitoX+60, (int) femaleMosquitoY);
                 drawMeteor(g, meteorX-150, meteorY);
             }
+            case 6 -> {
+                drawExplosion(g, (int) mosquitoX_air, (int) mosquitoY_air);
+                drawExplosionParticles(g);
+            }
         }
 
     }
@@ -203,8 +215,11 @@ public class main extends JPanel implements ActionListener {
                     meteorHit = true;
                     frameCount++;
                     if (frameCount > 15) {
-                        sceneState = 5;
+                        sceneState = 6;
                         frameCount = 0;
+                        explosionStarted = false;
+                        explosionRadius = 0;
+                        createExplosionParticles();
                     }
                 }
             }
@@ -219,6 +234,28 @@ public class main extends JPanel implements ActionListener {
                     heart.visible = false;
                     meteorX = -100;
                     meteorY = -100;
+                    explosionParticles.clear();
+                }
+            }
+            case 6 -> {
+                if(!explosionStarted){
+                    explosionStarted = true;
+                    explosionRadius = 0;
+                }
+                if(explosionRadius < 100){
+                    explosionRadius += 2;
+                }
+
+                for(ExplosionParticle particle : explosionParticles){
+                    particle.update();
+                }
+
+                explosionParticles.removeIf(particle -> particle.alpha <= 0);
+
+                if(frameCount > 60){
+                    sceneState = 5;
+                    frameCount = 0;
+                    explosionParticles.clear();
                 }
             }
         }
@@ -555,7 +592,97 @@ public class main extends JPanel implements ActionListener {
             g.setStroke(new BasicStroke(2f));
             g.draw(transformedHeart);
         }
+    }
+    private void createExplosionParticles() {
+        explosionParticles.clear();
+        Random rand = new Random();
+        
+        for (int i = 0; i < 50; i++) {
+            double angle = rand.nextDouble() * 2 * Math.PI;
+            double speed = 2 + rand.nextDouble() * 4;
+            double vx = Math.cos(angle) * speed;
+            double vy = Math.sin(angle) * speed;
+            
+            explosionParticles.add(new ExplosionParticle(
+                mosquitoX_air, mosquitoY_air, vx, vy, 
+                rand.nextInt(20) + 10, // size
+                rand.nextFloat() * 0.5f + 0.5f // alpha
+            ));
+        }
+    }
 
+    private void drawExplosion(Graphics2D g, int x, int y) {
+        // Main explosion circle
+        if (explosionRadius > 0) {
+            // Outer glow
+            RadialGradientPaint glowPaint = new RadialGradientPaint(
+                x, y, explosionRadius,
+                new float[]{0.0f, 0.7f, 1.0f},
+                new Color[]{
+                    new Color(255, 255, 0, 200), // Bright yellow center
+                    new Color(255, 165, 0, 150), // Orange middle
+                    new Color(255, 0, 0, 0)      // Transparent red edge
+                }
+            );
+            g.setPaint(glowPaint);
+            g.fillOval(x - explosionRadius, y - explosionRadius, 
+                      explosionRadius * 2, explosionRadius * 2);
+            
+            // Inner bright core
+            g.setColor(new Color(255, 255, 255, 180));
+            g.fillOval(x - explosionRadius/3, y - explosionRadius/3, 
+                      explosionRadius * 2/3, explosionRadius * 2/3);
+        }
+    }
+
+    private void drawExplosionParticles(Graphics2D g) {
+        for (ExplosionParticle particle : explosionParticles) {
+            particle.draw(g);
+        }
+    }
+
+    private class ExplosionParticle {
+        double x, y, vx, vy;
+        int size;
+        float alpha;
+        float alphaDecay = 0.02f;
+        
+        ExplosionParticle(double x, double y, double vx, double vy, int size, float alpha) {
+            this.x = x;
+            this.y = y;
+            this.vx = vx;
+            this.vy = vy;
+            this.size = size;
+            this.alpha = alpha;
+        }
+        
+        void update() {
+            x += vx;
+            y += vy;
+            vy += 0.1; // Gravity effect
+            alpha -= alphaDecay;
+            if (alpha < 0) alpha = 0;
+        }
+        
+        void draw(Graphics2D g) {
+            if (alpha <= 0) return;
+            
+            Composite original = g.getComposite();
+            g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            
+            // Random colors for particles
+            Color[] colors = {
+                new Color(255, 255, 0),   // Yellow
+                new Color(255, 165, 0),   // Orange
+                new Color(255, 69, 0),    // Red-orange
+                new Color(255, 0, 0)      // Red
+            };
+            g.setColor(colors[(int)(Math.random() * colors.length)]);
+            
+            g.fillOval((int)x - size/2, (int)y - size/2, size, size);
+            
+            g.setComposite(original);
+        }
     }
 
     public static void main(String[] args) {
