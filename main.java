@@ -8,6 +8,7 @@ import java.util.Iterator;
 import java.util.Random;
 
 public class main extends JPanel implements ActionListener {
+
     private Timer timer;
     private final int WIDTH = 600, HEIGHT = 600;
     private ArrayList<Bubble> bubbles;
@@ -58,7 +59,7 @@ public class main extends JPanel implements ActionListener {
     private boolean femaleCorpseOnWater = false;
     private boolean corpseSettleStarted = false;
 
-    //Explosion state
+    // Explosion state
     private ArrayList<ExplosionParticle> explosionParticles;
     private ArrayList<SmokeParticle> smokeParticles;
     private int explosionRadius = 0;
@@ -68,6 +69,11 @@ public class main extends JPanel implements ActionListener {
     private float flashAlpha = 0f;
     private double shakeIntensity = 0.0;
     private int shakeFrames = 0;
+
+    private void startFlash() {
+        isFlashing = true;
+        flashAlpha = 1f; // เริ่มจากขาวเต็มจอ
+    }
 
     public main() {
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
@@ -161,6 +167,30 @@ public class main extends JPanel implements ActionListener {
         } else {
             drawSkyBackground(g, 0);
         }
+        if (sceneState == -1) {
+            g.setColor(Color.BLACK);
+            g.fillRect(0, 0, WIDTH, HEIGHT);
+
+            g.setColor(new Color(1f, 1f, 1f, introAlpha));
+            g.setFont(new Font("SansSerif", Font.BOLD, 26));
+            String text = introTexts[introStep];
+            String[] lines = text.split("\n");
+            for (int i = 0; i < lines.length; i++) {
+                int textWidth = g.getFontMetrics().stringWidth(lines[i]);
+                g.drawString(lines[i], (WIDTH - textWidth) / 2, HEIGHT / 2 + i * 30);
+            }
+
+            return; // ไม่วาดอย่างอื่น
+        }
+
+
+        //flash check
+        if (isFlashing) {
+            Graphics2D g2d = (Graphics2D) g.create();
+            g2d.setColor(new Color(1f, 1f, 1f, flashAlpha)); // สีขาวโปร่งใส
+            g2d.fillRect(0, 0, getWidth(), getHeight());
+            g2d.dispose();
+        }
 
         // --- วาดองค์ประกอบหลักตามฉาก ---
         switch (sceneState) {
@@ -173,11 +203,11 @@ public class main extends JPanel implements ActionListener {
             }
             case 2 -> {
                 drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, true, 0);
-                drawFemaleMosquito(g, (int) femaleMosquitoX+60, (int) femaleMosquitoY);
+                drawFemaleMosquito(g, (int) femaleMosquitoX + 60, (int) femaleMosquitoY);
             }
             case 3 -> {
                 drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, true, 0);
-                drawFemaleMosquito(g, (int) femaleMosquitoX+60, (int) femaleMosquitoY);
+                drawFemaleMosquito(g, (int) femaleMosquitoX + 60, (int) femaleMosquitoY);
                 int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2 + 10);
                 int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2) - 25;
                 heart.x = heartX;
@@ -187,20 +217,20 @@ public class main extends JPanel implements ActionListener {
             case 4 -> {
                 // วาดเหมือน scene 3 แต่เพิ่มอุกาบาต
                 drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, true, 0);
-                drawFemaleMosquito(g, (int) femaleMosquitoX+60, (int) femaleMosquitoY);
-                int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2 + 10) ;
+                drawFemaleMosquito(g, (int) femaleMosquitoX + 60, (int) femaleMosquitoY);
+                int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2 + 10);
                 int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2) - 25;
                 heart.x = heartX;
                 heart.y = heartY;
                 heart.draw(g);
-                drawMeteor(g, meteorX-150, meteorY);
+                drawMeteor(g, meteorX - 150, meteorY);
 
             }
             case 5 -> {
                 // วาดร่างยุงทั้งสองที่ตายแล้วกำลังตก
                 drawDeadMosquito(g, mosquitoX_air, mosquitoY_air, corpseRotationDeg);
-                drawDeadMosquito(g, femaleMosquitoX+60, femaleMosquitoY, femaleCorpseRotationDeg);
-                drawMeteor(g, meteorX-150, meteorY);
+                drawDeadMosquito(g, femaleMosquitoX + 60, femaleMosquitoY, femaleCorpseRotationDeg);
+                drawMeteor(g, meteorX - 150, meteorY);
             }
             case 6 -> {
                 drawExplosion(g, (int) mosquitoX_air, (int) mosquitoY_air);
@@ -223,8 +253,38 @@ public class main extends JPanel implements ActionListener {
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        frameCount++;
+        if (isFlashing) {
+            flashAlpha -= 0.02f; // ลดความขาวลงทีละนิด
+            if (flashAlpha <= 0f) {
+                flashAlpha = 0f;
+                isFlashing = false;
+                sceneState = 0; // เปลี่ยนฉากจริงๆ ที่นี่
+            }
+            repaint();
+            return;
+        }
+        if (sceneState == -1) {
+            long elapsed = System.currentTimeMillis() - introStartTime;
 
+            if (introAlpha < 1f) {
+                introAlpha += 0.015f; // fade in
+            } else if (elapsed > 3500) {
+                introAlpha = 0f;
+                introStep++;
+                introStartTime = System.currentTimeMillis();
+
+                if (introStep >= introTexts.length) {
+                    isFlashing = true;
+                    flashAlpha = 1.0f;
+                    introStep++;
+                    sceneState = 0; // ไปฉากแรก
+                }
+            }
+
+            repaint();
+            return; // หยุดไม่ให้ไปทำ logic เดิม
+        }
+        frameCount++;
         switch (sceneState) {
             case 0 -> { // ไข่สั่น
                 if (frameCount > 60)
@@ -313,9 +373,12 @@ public class main extends JPanel implements ActionListener {
                     if (mosquitoY_air >= eggBaseY) {
                         mosquitoY_air = eggBaseY;
                         corpseOnWater = true;
-                        corpseVy *= -0.25;         // small bounce
-                        corpseRotSpeedDeg *= 0.5;  // damp rotation
-                        if (!corpseSettleStarted) { frameCount = 0; corpseSettleStarted = true; }
+                        corpseVy *= -0.25; // small bounce
+                        corpseRotSpeedDeg *= 0.5; // damp rotation
+                        if (!corpseSettleStarted) {
+                            frameCount = 0;
+                            corpseSettleStarted = true;
+                        }
                     }
                 } else {
                     corpseVy *= 0.85;
@@ -334,7 +397,10 @@ public class main extends JPanel implements ActionListener {
                         femaleCorpseOnWater = true;
                         femaleCorpseVy *= -0.25;
                         femaleCorpseRotSpeedDeg *= 0.5;
-                        if (!corpseSettleStarted) { frameCount = 0; corpseSettleStarted = true; }
+                        if (!corpseSettleStarted) {
+                            frameCount = 0;
+                            corpseSettleStarted = true;
+                        }
                     }
                 } else {
                     femaleCorpseVy *= 0.85;
@@ -378,7 +444,8 @@ public class main extends JPanel implements ActionListener {
                 // Screen flash fades quickly
                 if (flashAlpha > 0f) {
                     flashAlpha *= 0.88f;
-                    if (flashAlpha < 0.02f) flashAlpha = 0f;
+                    if (flashAlpha < 0.02f)
+                        flashAlpha = 0f;
                 }
 
                 // Camera shake decay
@@ -580,7 +647,7 @@ public class main extends JPanel implements ActionListener {
 
     // --- โค้ดของฉากใต้น้ำ (แก้ไขสี) ---
     private void drawEvolvingMosquito(Graphics2D g, int x, int y, double progress) {
-        x = x-25;
+        x = x - 25;
         AffineTransform old = g.getTransform();
         g.rotate(Math.sin(y * 0.1) * 0.1, x, y);
 
@@ -589,7 +656,7 @@ public class main extends JPanel implements ActionListener {
         g.setColor(new Color(40, 40, 40));
         g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         // --- END: MODIFIED COLOR ---
-        
+
         if (progress < 0.2) {
             g.drawPolyline(new int[] { x, x + 2, x - 2, x }, new int[] { y, y - 10, y - 20, y - 30 }, 4);
         } else {
@@ -733,7 +800,8 @@ public class main extends JPanel implements ActionListener {
         double swayAmplitude;
         double swaySpeed;
 
-        SeaGrass(int baseX, int bladeCount, int spread, int minHeight, int maxHeight, double swayAmplitude, double swaySpeed) {
+        SeaGrass(int baseX, int bladeCount, int spread, int minHeight, int maxHeight, double swayAmplitude,
+                double swaySpeed) {
             this.baseX = baseX;
             this.bladeCount = bladeCount;
             this.spread = spread;
@@ -906,22 +974,23 @@ public class main extends JPanel implements ActionListener {
             g.draw(transformedHeart);
         }
     }
+
     private void createExplosionParticles() {
         explosionParticles.clear();
         smokeParticles.clear();
         Random rand = new Random();
-        
+
         // Fiery sparks
         for (int i = 0; i < 140; i++) {
             double angle = rand.nextDouble() * 2 * Math.PI;
             double speed = 3 + rand.nextDouble() * 6; // faster
             double vx = Math.cos(angle) * speed;
             double vy = Math.sin(angle) * speed;
-            
+
             explosionParticles.add(new ExplosionParticle(
-                mosquitoX_air, mosquitoY_air, vx, vy, 
-                rand.nextInt(12) + 6, // size smaller sparks
-                0.6f + rand.nextFloat() * 0.4f // alpha
+                    mosquitoX_air, mosquitoY_air, vx, vy,
+                    rand.nextInt(12) + 6, // size smaller sparks
+                    0.6f + rand.nextFloat() * 0.4f // alpha
             ));
         }
 
@@ -932,9 +1001,9 @@ public class main extends JPanel implements ActionListener {
             double vx = Math.cos(angle) * speed * 0.6;
             double vy = Math.sin(angle) * speed * 0.6 - (0.5 + rand.nextDouble() * 0.5); // rise
             smokeParticles.add(new SmokeParticle(
-                mosquitoX_air, mosquitoY_air, vx, vy,
-                18 + rand.nextInt(22), // initial size
-                40 + rand.nextInt(50)  // life
+                    mosquitoX_air, mosquitoY_air, vx, vy,
+                    18 + rand.nextInt(22), // initial size
+                    40 + rand.nextInt(50) // life
             ));
         }
     }
@@ -944,22 +1013,21 @@ public class main extends JPanel implements ActionListener {
         if (explosionRadius > 0) {
             // Outer glow
             RadialGradientPaint glowPaint = new RadialGradientPaint(
-                x, y, explosionRadius,
-                new float[]{0.0f, 0.7f, 1.0f},
-                new Color[]{
-                    new Color(255, 255, 0, 200), // Bright yellow center
-                    new Color(255, 165, 0, 150), // Orange middle
-                    new Color(255, 0, 0, 0)      // Transparent red edge
-                }
-            );
+                    x, y, explosionRadius,
+                    new float[] { 0.0f, 0.7f, 1.0f },
+                    new Color[] {
+                            new Color(255, 255, 0, 200), // Bright yellow center
+                            new Color(255, 165, 0, 150), // Orange middle
+                            new Color(255, 0, 0, 0) // Transparent red edge
+                    });
             g.setPaint(glowPaint);
-            g.fillOval(x - explosionRadius, y - explosionRadius, 
-                      explosionRadius * 2, explosionRadius * 2);
-            
+            g.fillOval(x - explosionRadius, y - explosionRadius,
+                    explosionRadius * 2, explosionRadius * 2);
+
             // Inner bright core
             g.setColor(new Color(255, 255, 255, 180));
-            g.fillOval(x - explosionRadius/3, y - explosionRadius/3, 
-                      explosionRadius * 2/3, explosionRadius * 2/3);
+            g.fillOval(x - explosionRadius / 3, y - explosionRadius / 3,
+                    explosionRadius * 2 / 3, explosionRadius * 2 / 3);
 
             // Shockwave ring
             if (shockwaveAlpha > 0f) {
@@ -990,7 +1058,7 @@ public class main extends JPanel implements ActionListener {
         int size;
         float alpha;
         float alphaDecay = 0.02f;
-        
+
         ExplosionParticle(double x, double y, double vx, double vy, int size, float alpha) {
             this.x = x;
             this.y = y;
@@ -999,32 +1067,34 @@ public class main extends JPanel implements ActionListener {
             this.size = size;
             this.alpha = alpha;
         }
-        
+
         void update() {
             x += vx;
             y += vy;
             vy += 0.1; // Gravity effect
             alpha -= alphaDecay;
-            if (alpha < 0) alpha = 0;
+            if (alpha < 0)
+                alpha = 0;
         }
-        
+
         void draw(Graphics2D g) {
-            if (alpha <= 0) return;
-            
+            if (alpha <= 0)
+                return;
+
             Composite original = g.getComposite();
             g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-            
+
             // Random colors for particles
             Color[] colors = {
-                new Color(255, 255, 0),   // Yellow
-                new Color(255, 165, 0),   // Orange
-                new Color(255, 69, 0),    // Red-orange
-                new Color(255, 0, 0)      // Red
+                    new Color(255, 255, 0), // Yellow
+                    new Color(255, 165, 0), // Orange
+                    new Color(255, 69, 0), // Red-orange
+                    new Color(255, 0, 0) // Red
             };
-            g.setColor(colors[(int)(Math.random() * colors.length)]);
-            
-            g.fillOval((int)x - size/2, (int)y - size/2, size, size);
-            
+            g.setColor(colors[(int) (Math.random() * colors.length)]);
+
+            g.fillOval((int) x - size / 2, (int) y - size / 2, size, size);
+
             g.setComposite(original);
         }
     }
@@ -1066,7 +1136,8 @@ public class main extends JPanel implements ActionListener {
         }
 
         void draw(Graphics2D g) {
-            if (alpha <= 0) return;
+            if (alpha <= 0)
+                return;
             Composite original = g.getComposite();
             g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
             g.setColor(new Color(50, 50, 50));
@@ -1085,4 +1156,3 @@ public class main extends JPanel implements ActionListener {
         frame.setVisible(true);
     }
 }
-
