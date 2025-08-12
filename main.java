@@ -33,6 +33,19 @@ public class main extends JPanel implements ActionListener {
     private double meteorSpeedY = 10;
     private boolean meteorHit = false;
     ArrayList<Integer> cloudSpeeds = new ArrayList<>();
+    private ArrayList<Seaweed> seaweeds;
+    private ArrayList<SeaGrass> seaGrasses;
+
+    // Falling corpse state
+    private double corpseVy = 0;
+    private double corpseRotationDeg = 0;
+    private double corpseRotSpeedDeg = 0;
+    private boolean corpseOnWater = false;
+    private double femaleCorpseVy = 0;
+    private double femaleCorpseRotationDeg = 0;
+    private double femaleCorpseRotSpeedDeg = 0;
+    private boolean femaleCorpseOnWater = false;
+    private boolean corpseSettleStarted = false;
 
     //Explosion state
     private ArrayList<ExplosionParticle> explosionParticles;
@@ -58,9 +71,34 @@ public class main extends JPanel implements ActionListener {
         // Initialize objects
         bubbles = new ArrayList<>();
         clouds = new ArrayList<>();
+        seaweeds = new ArrayList<>();
+        seaGrasses = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
             clouds.add(new Point(rand.nextInt(WIDTH), rand.nextInt(200) + 50));
             cloudSpeeds.add(1 + rand.nextInt(3)); // ความเร็ว 1-3 pixel/frame
+        }
+        // Seaweed stalks along bottom
+        int seaweedCount = 15;
+        for (int i = 0; i < seaweedCount; i++) {
+            int baseX = 30 + i * (WIDTH - 60) / seaweedCount + rand.nextInt(20) - 10;
+            int height = 60 + rand.nextInt(60);
+            double amp = 6 + rand.nextDouble() * 8;
+            double speed = 0.02 + rand.nextDouble() * 0.03;
+            int segments = 12 + rand.nextInt(6);
+            seaweeds.add(new Seaweed(baseX, height, amp, speed, segments));
+        }
+
+        // Small sea grass clusters along bottom
+        int clusterCount = 30;
+        for (int i = 0; i < clusterCount; i++) {
+            int baseX = 15 + i * (WIDTH - 30) / clusterCount + rand.nextInt(10) - 5;
+            int blades = 6 + rand.nextInt(6);
+            int minH = 18 + rand.nextInt(8);
+            int maxH = minH + 10 + rand.nextInt(12);
+            int spread = 10 + rand.nextInt(8);
+            double amp = 2.5 + rand.nextDouble() * 2.5;
+            double speed = 0.015 + rand.nextDouble() * 0.02;
+            seaGrasses.add(new SeaGrass(baseX, blades, spread, minH, maxH, amp, speed));
         }
         // กำหนดตำแหน่งกลางจอ (ตรงกลางและไม่ซ้ำกับตำแหน่งยุงตัวเมียเก่า)
         meetingX = WIDTH / 2.0;
@@ -103,6 +141,8 @@ public class main extends JPanel implements ActionListener {
             g.setColor(new Color(70, 130, 150));
             g.fillRect(0, 0, WIDTH, HEIGHT);
             drawBottomGround(g);
+            drawSeaGrass(g);
+            drawSeaweed(g);
             manageBubbles(g);
             if (sceneState == 5) {
                 drawSkyBackground(g, (int) mosquitoY_air);
@@ -146,9 +186,9 @@ public class main extends JPanel implements ActionListener {
 
             }
             case 5 -> {
-                // วาดผลหลังชน เช่น ตัวผู้โดนกระแทก
-                drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, false, 0);
-                drawFemaleMosquito(g, (int) femaleMosquitoX+60, (int) femaleMosquitoY);
+                // วาดร่างยุงทั้งสองที่ตายแล้วกำลังตก
+                drawDeadMosquito(g, mosquitoX_air, mosquitoY_air, corpseRotationDeg);
+                drawDeadMosquito(g, femaleMosquitoX+60, femaleMosquitoY, femaleCorpseRotationDeg);
                 drawMeteor(g, meteorX-150, meteorY);
             }
             case 6 -> {
@@ -253,9 +293,47 @@ public class main extends JPanel implements ActionListener {
                 }
             }
             case 5 -> {
-                mosquitoY_air += 5;
-                meteorY += 5;
-                if (mosquitoY_air == eggBaseY) {
+                // Falling corpse physics with rotation and water impact (both mosquitoes)
+                // Male
+                if (!corpseOnWater) {
+                    corpseVy += 0.5; // gravity
+                    mosquitoY_air += corpseVy;
+                    corpseRotationDeg += corpseRotSpeedDeg;
+                    if (mosquitoY_air >= eggBaseY) {
+                        mosquitoY_air = eggBaseY;
+                        corpseOnWater = true;
+                        corpseVy *= -0.25;         // small bounce
+                        corpseRotSpeedDeg *= 0.5;  // damp rotation
+                        if (!corpseSettleStarted) { frameCount = 0; corpseSettleStarted = true; }
+                    }
+                } else {
+                    corpseVy *= 0.85;
+                    corpseRotSpeedDeg *= 0.85;
+                    mosquitoY_air += corpseVy;
+                    corpseRotationDeg += corpseRotSpeedDeg;
+                }
+
+                // Female
+                if (!femaleCorpseOnWater) {
+                    femaleCorpseVy += 0.5;
+                    femaleMosquitoY += femaleCorpseVy;
+                    femaleCorpseRotationDeg += femaleCorpseRotSpeedDeg;
+                    if (femaleMosquitoY >= eggBaseY) {
+                        femaleMosquitoY = eggBaseY;
+                        femaleCorpseOnWater = true;
+                        femaleCorpseVy *= -0.25;
+                        femaleCorpseRotSpeedDeg *= 0.5;
+                        if (!corpseSettleStarted) { frameCount = 0; corpseSettleStarted = true; }
+                    }
+                } else {
+                    femaleCorpseVy *= 0.85;
+                    femaleCorpseRotSpeedDeg *= 0.85;
+                    femaleMosquitoY += femaleCorpseVy;
+                    femaleCorpseRotationDeg += femaleCorpseRotSpeedDeg;
+                }
+
+                // After both are on water and a short linger, reset scene
+                if (corpseOnWater && femaleCorpseOnWater && frameCount > 60) {
                     frameCount = 0;
                     sceneState = 0;
                     eggSwingAngle = 0;
@@ -264,7 +342,10 @@ public class main extends JPanel implements ActionListener {
                     meteorX = -100;
                     meteorY = -100;
                     explosionParticles.clear();
+                    smokeParticles.clear();
                 }
+
+                meteorY += 8;
             }
             case 6 -> {
                 if (!explosionStarted) {
@@ -318,6 +399,16 @@ public class main extends JPanel implements ActionListener {
                     flashAlpha = 0f;
                     shockwaveAlpha = 0f;
                     shakeIntensity = 0;
+                    // Initialize corpse fall physics
+                    corpseVy = 0.0;
+                    corpseRotationDeg = rand.nextBoolean() ? -20 : 20;
+                    corpseRotSpeedDeg = (rand.nextDouble() * 6 + 2) * (rand.nextBoolean() ? 1 : -1);
+                    corpseOnWater = false;
+                    femaleCorpseVy = 0.0;
+                    femaleCorpseRotationDeg = rand.nextBoolean() ? -15 : 15;
+                    femaleCorpseRotSpeedDeg = (rand.nextDouble() * 5 + 2) * (rand.nextBoolean() ? 1 : -1);
+                    femaleCorpseOnWater = false;
+                    corpseSettleStarted = false;
                 }
             }
         }
@@ -439,6 +530,43 @@ public class main extends JPanel implements ActionListener {
         g.setTransform(old);
     }
 
+    private void drawDeadMosquito(Graphics2D g, double x, double y, double rotationDeg) {
+        AffineTransform old = g.getTransform();
+        g.translate(x, y);
+        g.rotate(Math.toRadians(rotationDeg));
+
+        // Body
+        g.setColor(new Color(50, 50, 50));
+        g.fillOval(-5, -20, 10, 20); // Thorax & Abdomen
+
+        // Head
+        g.setColor(new Color(60, 60, 60));
+        g.fillOval(-4, -24, 8, 8);
+
+        // X-eyes
+        g.setColor(Color.RED.darker());
+        g.setStroke(new BasicStroke(1.5f));
+        g.drawLine(-6, -26, -2, -22);
+        g.drawLine(-6, -22, -2, -26);
+        g.drawLine(2, -26, 6, -22);
+        g.drawLine(2, -22, 6, -26);
+
+        // Limp legs
+        g.setColor(Color.BLACK);
+        g.setStroke(new BasicStroke(1.5f));
+        g.drawLine(0, -10, -12, -2);
+        g.drawLine(0, -10, 12, -2);
+        g.drawLine(0, -15, -10, -6);
+        g.drawLine(0, -15, 10, -6);
+
+        // Drooped wings (faint)
+        g.setColor(new Color(180, 180, 180, 120));
+        g.fillArc(-22, -10, 22, 12, 200, 140);
+        g.fillArc(0, -10, 22, 12, 200, 140);
+
+        g.setTransform(old);
+    }
+
     // --- โค้ดของฉากใต้น้ำ (แก้ไขสี) ---
     private void drawEvolvingMosquito(Graphics2D g, int x, int y, double progress) {
         x = x-25;
@@ -515,6 +643,118 @@ public class main extends JPanel implements ActionListener {
             int x = 20 + i * 40;
             int size = 10 + (i % 3) * 5;
             g.fillOval(x, yStart + 20 + (i % 2) * 10, size, size);
+        }
+    }
+
+    private void drawSeaweed(Graphics2D g) {
+        int groundHeight = 80;
+        int yStart = HEIGHT - groundHeight; // top of sand
+        for (Seaweed s : seaweeds) {
+            s.draw(g, yStart, frameCount);
+        }
+    }
+
+    private void drawSeaGrass(Graphics2D g) {
+        int groundHeight = 80;
+        int yStart = HEIGHT - groundHeight; // top of sand
+        for (SeaGrass c : seaGrasses) {
+            c.draw(g, yStart, frameCount);
+        }
+    }
+
+    private class Seaweed {
+        int baseX;
+        int height;
+        double swayAmplitude;
+        double swaySpeed;
+        int segments;
+
+        Seaweed(int baseX, int height, double swayAmplitude, double swaySpeed, int segments) {
+            this.baseX = baseX;
+            this.height = height;
+            this.swayAmplitude = swayAmplitude;
+            this.swaySpeed = swaySpeed;
+            this.segments = segments;
+        }
+
+        void draw(Graphics2D g, int baseY, int frame) {
+            double t = frame * swaySpeed;
+            double segLen = (double) height / segments;
+            Path2D.Double path = new Path2D.Double();
+            double x = baseX;
+            double y = baseY;
+            path.moveTo(x, y);
+            for (int i = 1; i <= segments; i++) {
+                double progress = (double) i / segments;
+                double ampFalloff = 1.0 - 0.4 * progress; // slimmer sway at tip
+                double dx = Math.sin(t + i * 0.6) * swayAmplitude * ampFalloff;
+                double nx = baseX + dx;
+                double ny = baseY - segLen * i;
+                path.lineTo(nx, ny);
+            }
+
+            g.setColor(new Color(20, 100, 60));
+            g.setStroke(new BasicStroke(4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g.draw(path);
+
+            // small leaves along the stalk
+            g.setColor(new Color(30, 140, 80));
+            for (int i = 3; i < segments; i += 3) {
+                double progress = (double) i / segments;
+                double ampFalloff = 1.0 - 0.4 * progress;
+                double dx = Math.sin(t + i * 0.6) * swayAmplitude * ampFalloff;
+                double nx = baseX + dx;
+                double ny = baseY - segLen * i;
+                int leafW = 8;
+                int leafH = 14;
+                g.fillOval((int) (nx - leafW - 3), (int) (ny - leafH / 2), leafW, leafH);
+                g.fillOval((int) (nx + 3), (int) (ny - leafH / 2), leafW, leafH);
+            }
+        }
+    }
+
+    private class SeaGrass {
+        int baseX;
+        int bladeCount;
+        int spread;
+        int minHeight;
+        int maxHeight;
+        double swayAmplitude;
+        double swaySpeed;
+
+        SeaGrass(int baseX, int bladeCount, int spread, int minHeight, int maxHeight, double swayAmplitude, double swaySpeed) {
+            this.baseX = baseX;
+            this.bladeCount = bladeCount;
+            this.spread = spread;
+            this.minHeight = minHeight;
+            this.maxHeight = maxHeight;
+            this.swayAmplitude = swayAmplitude;
+            this.swaySpeed = swaySpeed;
+        }
+
+        void draw(Graphics2D g, int baseY, int frame) {
+            double t = frame * swaySpeed;
+            // draw many thin blades varying in height and phase
+            for (int i = 0; i < bladeCount; i++) {
+                int x = baseX + (int) ((i - bladeCount / 2.0) * (spread / (double) bladeCount));
+                int h = minHeight + (i * 37 % (maxHeight - minHeight + 1));
+                double localPhase = i * 0.45;
+                // blade path as a short curved polyline
+                Path2D.Double blade = new Path2D.Double();
+                blade.moveTo(x, baseY);
+                int segments = 5;
+                for (int s = 1; s <= segments; s++) {
+                    double p = s / (double) segments;
+                    double ampFalloff = 1.0 - 0.5 * p;
+                    double dx = Math.sin(t + localPhase + p * 1.2) * swayAmplitude * ampFalloff;
+                    double nx = x + dx;
+                    double ny = baseY - h * p;
+                    blade.lineTo(nx, ny);
+                }
+                g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g.setColor(new Color(25, 120, 70));
+                g.draw(blade);
+            }
         }
     }
 
