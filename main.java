@@ -23,10 +23,17 @@ public class main extends JPanel implements ActionListener {
     private float introAlpha = 0f;
     private int introStep = 0;
     private long introStartTime = System.currentTimeMillis();
+    // private String[] introTexts = {
+    //         "I died seeing only the final light\nin my last moments.",
+    //         "It's time for me to be reborn.",
+    //         "The last things I known was that \na male mosquito lives only seven days...\nso short, isn't it?"
+    // };
+
     private String[] introTexts = {
-            "I died seeing only the final light\nin my last moments.",
-            "It's time for me to be reborn.",
-            "The last knowledge in my head was that \na male mosquito lives only seven days...\nshort, isn't it?"
+        "In my final breath,\nall I saw was the blinding glow\nthe last light before the dark claimed me",
+        "Now... the wheel turns\nIt's time for me to be reborn",
+        "The last memory that clung to me\n was the simple truth that\na male mosquito lives only seven days",
+        "Such a brief flicker of existence, isn't it?"
     };
     private boolean isFlashing = false;
 
@@ -975,6 +982,7 @@ public class main extends JPanel implements ActionListener {
             g.fillRect(xc - y, yc - x, 1, 1);
         }
     }
+    
 
     private class Heart {
         int x, y, size;
