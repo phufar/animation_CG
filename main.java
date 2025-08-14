@@ -55,6 +55,12 @@ public class main extends JPanel implements ActionListener {
     private ArrayList<Seaweed> seaweeds;
     private ArrayList<SeaGrass> seaGrasses;
     
+    // Puddle on the ground
+    private int puddleX = 30;
+    private int puddleY = 500; // กำหนดพิกัด Y ของบ่อน้ำเอง
+    private int puddleWidth = 500;
+    private int puddleHeight = 60;
+    
     // Forest scene variables
     private ArrayList<Tree> trees;
     private ArrayList<Bush> bushes;
@@ -214,7 +220,7 @@ public class main extends JPanel implements ActionListener {
             if (sceneState == 5) {
                 drawSkyBackground(g, (int) mosquitoY_air);
             }
-        } else {
+        } else if (sceneState >= 2 && sceneState <= 4) { // บินบนฟ้า (รวม scene 4 ที่อุกาบาตตกลงมา)
             drawSkyBackground(g, 0);
         }
         if (sceneState == -1) {
@@ -644,6 +650,8 @@ public class main extends JPanel implements ActionListener {
         if (sceneState >= 2 && sceneState <= 4) {
             drawForest(g);
             drawBirds(g);
+            // Draw puddle on the ground when flying
+            drawPuddle(g);
         }
     }
 
@@ -1229,6 +1237,9 @@ public class main extends JPanel implements ActionListener {
             g.drawLine(i, groundY, i, groundY + grassHeight);
         }
         
+        // Draw puddle on the ground
+        drawPuddle(g);
+        
         // Draw trees
         for (Tree tree : trees) {
             tree.draw(g, groundY);
@@ -1243,6 +1254,42 @@ public class main extends JPanel implements ActionListener {
         for (FloatingLeaf leaf : floatingLeaves) {
             leaf.update();
             leaf.draw(g);
+        }
+    }
+    
+    private void drawPuddle(Graphics2D g) {
+        // Draw puddle shadow first
+        g.setColor(new Color(0, 0, 0, 40));
+        g.fillOval(puddleX - 8, puddleY - 8, puddleWidth + 16, puddleHeight + 16);
+        
+        // Draw main puddle with gradient
+        GradientPaint puddlePaint = new GradientPaint(
+            puddleX, puddleY, new Color(100, 150, 255, 180), // Blue with transparency
+            puddleX, puddleY + puddleHeight, new Color(70, 130, 200, 220) // Darker blue at bottom
+        );
+        g.setPaint(puddlePaint);
+        g.fillOval(puddleX, puddleY, puddleWidth, puddleHeight);
+        
+        // Add water reflection highlights (more highlights for bigger puddle)
+        g.setColor(new Color(255, 255, 255, 120));
+        g.fillOval(puddleX + 25, puddleY + 12, puddleWidth/4, puddleHeight/3);
+        g.fillOval(puddleX + puddleWidth/2, puddleY + 15, puddleWidth/5, puddleHeight/4);
+        g.fillOval(puddleX + puddleWidth - 40, puddleY + 10, puddleWidth/6, puddleHeight/3);
+        
+        // Add small ripples (more ripples for bigger puddle)
+        g.setColor(new Color(255, 255, 255, 100));
+        g.setStroke(new BasicStroke(2.5f));
+        g.drawArc(puddleX + 30, puddleY + 15, puddleWidth - 60, puddleHeight - 30, 0, 180);
+        g.drawArc(puddleX + 50, puddleY + 22, puddleWidth - 100, puddleHeight - 44, 0, 180);
+        g.drawArc(puddleX + 70, puddleY + 28, puddleWidth - 140, puddleHeight - 56, 0, 180);
+        
+        // Add some grass around the puddle (more grass for bigger puddle)
+        g.setColor(new Color(0, 100, 0));
+        g.setStroke(new BasicStroke(1.5f));
+        for (int i = 0; i < 12; i++) {
+            int grassX = puddleX + (i * 18) + 15;
+            int grassHeight = 4 + rand.nextInt(4);
+            g.drawLine(grassX, puddleY, grassX, puddleY - grassHeight);
         }
     }
     
