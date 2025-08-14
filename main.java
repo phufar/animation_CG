@@ -155,7 +155,7 @@ public class main extends JPanel implements ActionListener {
         }
         
         // Create flying birds
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 5; i++) {
             int startX = rand.nextInt(WIDTH);
             int startY = 80 + rand.nextInt(100); // Lower height to fly above forest
             birds.add(new Bird(startX, startY));
@@ -1323,7 +1323,7 @@ public class main extends JPanel implements ActionListener {
         }
         
         void update() {
-            x += vx;
+            x -= vx;
             y += vy;
             
             // Wrap around screen
