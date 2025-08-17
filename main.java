@@ -75,6 +75,7 @@ public class main extends JPanel implements ActionListener {
     // Explosion state
     private ArrayList<ExplosionParticle> explosionParticles;
     private ArrayList<SmokeParticle> smokeParticles;
+    private ArrayList<TransformationParticle> transformationParticles;
     private int explosionRadius = 0;
     private boolean explosionStarted = false;
     private boolean underwaterTransition = false;
@@ -239,6 +240,7 @@ public class main extends JPanel implements ActionListener {
         // Initialize explosion particles
         explosionParticles = new ArrayList<>();
         smokeParticles = new ArrayList<>();
+        transformationParticles = new ArrayList<>();
 
         // Initialize objects
         bubbles = new ArrayList<>();
@@ -439,7 +441,7 @@ public class main extends JPanel implements ActionListener {
             if (flashAlpha <= 0f) {
                 flashAlpha = 0f;
                 isFlashing = false;
-                sceneState = 0; // เปลี่ยนฉากจริงๆ ที่นี่
+                // Don't change sceneState here anymore, let the transformation logic handle it
             }
             repaint();
             return;
@@ -623,7 +625,7 @@ public class main extends JPanel implements ActionListener {
                 if (corpseOnWater && femaleCorpseOnWater &&
                         mosquitoY_air >= puddleY + puddleHeight + 20 &&
                         femaleMosquitoY >= puddleY + puddleHeight + 20 &&
-                        frameCount > 30) { // Faster transition
+                        frameCount > 30 && !underwaterTransition) { // Add check to prevent multiple transitions
                     underwaterTransition = true;
                     underwaterMosquitoY = 0; // Start from top of screen
                     eggTransformationProgress = 0.0;
@@ -648,10 +650,36 @@ public class main extends JPanel implements ActionListener {
 
                     // Once at egg position, start transformation
                     if (underwaterMosquitoY >= eggBaseY) {
-                        eggTransformationProgress += 0.15; // Very fast transformation
+                        eggTransformationProgress += 0.08; // Slower transformation for better visual effect
+
+                        // Create transformation particles
+                        if (eggTransformationProgress > 0.2 && eggTransformationProgress < 0.8 && transformationParticles.size() < 50) {
+                            if (rand.nextInt(3) == 0) { // Create particles occasionally
+                                double angle = rand.nextDouble() * 2 * Math.PI;
+                                double speed = 1 + rand.nextDouble() * 2;
+                                double vx = Math.cos(angle) * speed;
+                                double vy = Math.sin(angle) * speed - 1;
+                                
+                                Color[] colors = {
+                                    new Color(255, 255, 200), // Light yellow
+                                    new Color(255, 215, 0),   // Gold
+                                    new Color(255, 255, 255)  // White
+                                };
+                                Color particleColor = colors[rand.nextInt(colors.length)];
+                                
+                                transformationParticles.add(new TransformationParticle(
+                                    eggBaseX + (rand.nextDouble() - 0.5) * 20,
+                                    eggBaseY + (rand.nextDouble() - 0.5) * 10,
+                                    vx, vy, 3 + rand.nextInt(4), particleColor
+                                ));
+                            }
+                        }
 
                         // When transformation complete, reset to scene 0
                         if (eggTransformationProgress >= 1.0) {
+                            // Add final flash effect
+                            flashAlpha = 0.8f;
+                            isFlashing = true;
                             frameCount = 0;
                             sceneState = 0;
                             underwaterTransition = false;
@@ -662,6 +690,7 @@ public class main extends JPanel implements ActionListener {
                             meteorY = -100;
                             explosionParticles.clear();
                             smokeParticles.clear();
+                            transformationParticles.clear();
                             // Reset all corpse variables
                             corpseOnWater = false;
                             femaleCorpseOnWater = false;
@@ -669,6 +698,24 @@ public class main extends JPanel implements ActionListener {
                             // Reset underwater variables
                             underwaterMosquitoY = 0;
                             eggTransformationProgress = 0.0;
+                            // Reset flash variables
+                            flashAlpha = 0f;
+                            isFlashing = false;
+                            // Reset all mosquito positions for new cycle
+                            mosquitoX_air = -40;
+                            mosquitoY_air = meetingY;
+                            femaleMosquitoX = meetingX + 60;
+                            femaleMosquitoY = meetingY;
+                            // Reset heart
+                            heart.visible = false;
+                            heart.blinkCounter = 0;
+                            // Reset corpse velocities and rotations
+                            corpseVy = 0.0;
+                            corpseRotationDeg = 0.0;
+                            corpseRotSpeedDeg = 0.0;
+                            femaleCorpseVy = 0.0;
+                            femaleCorpseRotationDeg = 0.0;
+                            femaleCorpseRotSpeedDeg = 0.0;
                             System.out.println("Animation complete! Returning to scene 0");
                         }
                     }
@@ -918,30 +965,58 @@ public class main extends JPanel implements ActionListener {
         drawSeaGrass(g);
         drawSeaweed(g);
         manageBubbles(g);
+        
+        // Draw transformation particles
+        for (TransformationParticle particle : transformationParticles) {
+            particle.update();
+            particle.draw(g);
+        }
+        // Remove dead particles
+        transformationParticles.removeIf(particle -> particle.isDead());
+        
+        // Safety check - if too many particles, clear some
+        if (transformationParticles.size() > 100) {
+            transformationParticles.clear();
+        }
 
         // Draw floating mosquitoes that slowly transform into egg
         if (eggTransformationProgress < 1.0) {
-            // Draw mosquitoes with fading effect - smoother transition
+            // Draw mosquitoes with fading effect and merging animation
             float alpha = (float) (1.0 - eggTransformationProgress);
             int mosquitoAlpha = Math.max(0, (int) (alpha * 255));
 
             if (mosquitoAlpha > 0) {
                 g.setColor(new Color(50, 50, 50, mosquitoAlpha));
-                // Position mosquitoes at their current floating position
-                drawDeadMosquito(g, WIDTH / 2 - 15, (int) underwaterMosquitoY, 0);
-                drawDeadMosquito(g, WIDTH / 2 + 15, (int) underwaterMosquitoY, 0);
+                
+                // Calculate merging positions - mosquitoes move closer together as they transform
+                double mergeProgress = Math.min(1.0, eggTransformationProgress * 2.0); // Start merging early
+                double separation = 30.0 * (1.0 - mergeProgress); // Start 30 pixels apart, end at 0
+                
+                // Position mosquitoes at their current floating position with merging effect
+                drawDeadMosquito(g, WIDTH / 2 - separation, (int) underwaterMosquitoY, 0);
+                drawDeadMosquito(g, WIDTH / 2 + separation, (int) underwaterMosquitoY, 0);
             }
 
-            // Draw egg forming with smoother alpha transition
-            if (eggTransformationProgress > 0.05) { // Start egg formation very early
-                float eggAlpha = (float) ((eggTransformationProgress - 0.05) / 0.95);
-                int finalEggAlpha = Math.min(200, (int) (eggAlpha * 200));
+            // Draw egg forming with smoother alpha transition and glow effect
+            if (eggTransformationProgress > 0.1) { // Start egg formation slightly later
+                float eggAlpha = (float) ((eggTransformationProgress - 0.1) / 0.9);
+                int finalEggAlpha = Math.min(255, (int) (eggAlpha * 255));
+                
+                // Add glow effect around the egg
+                if (eggAlpha > 0.3) {
+                    int glowSize = (int) (eggAlpha * 30);
+                    g.setColor(new Color(255, 255, 200, (int) (eggAlpha * 100)));
+                    fillEllipse(g, eggBaseX, eggBaseY, 50 + glowSize, 25 + glowSize);
+                }
+                
                 g.setColor(new Color(139, 69, 19, finalEggAlpha));
                 drawMosquitoEgg(g);
             }
         } else {
-            // Fully transformed egg
-            g.setColor(new Color(139, 69, 19, 200));
+            // Fully transformed egg with glow
+            g.setColor(new Color(255, 255, 200, 100));
+            fillEllipse(g, eggBaseX, eggBaseY, 80, 55);
+            g.setColor(new Color(139, 69, 19, 255));
             drawMosquitoEgg(g);
         }
     }
@@ -1682,6 +1757,44 @@ public class main extends JPanel implements ActionListener {
 
             g.setColor(new Color(0, 80, 0, (int) (alpha * 255)));
             drawBresenhamLine(g, (int) (x - size / 3), (int) y, (int) (x + size / 3), (int) y);
+        }
+    }
+
+    private class TransformationParticle {
+        double x, y;
+        double vx, vy;
+        int size;
+        float alpha;
+        float alphaDecay = 0.02f;
+        Color color;
+
+        TransformationParticle(double x, double y, double vx, double vy, int size, Color color) {
+            this.x = x;
+            this.y = y;
+            this.vx = vx;
+            this.vy = vy;
+            this.size = size;
+            this.alpha = 1.0f;
+            this.color = color;
+        }
+
+        void update() {
+            x += vx;
+            y += vy;
+            vy += 0.1; // Gravity
+            alpha -= alphaDecay;
+            if (alpha < 0) alpha = 0;
+        }
+
+        void draw(Graphics g) {
+            if (alpha <= 0) return;
+            
+            g.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), (int) (alpha * 255)));
+            fillEllipse(g, (int) x, (int) y, size, size);
+        }
+
+        boolean isDead() {
+            return alpha <= 0;
         }
     }
 
