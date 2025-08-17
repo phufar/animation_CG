@@ -3,6 +3,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Path2D;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Random;
@@ -87,143 +88,136 @@ public class main extends JPanel implements ActionListener {
     private double shakeIntensity = 0.0;
     private int shakeFrames = 0;
 
-    // Custom drawing algorithms
+    // BufferedImage for drawing shapes
+    private BufferedImage circleImage;
+    private BufferedImage ellipseImage;
+    private BufferedImage rectangleImage;
+
+    // Custom drawing algorithms using Polygon and BufferedImage
     private void drawBresenhamLine(Graphics g, int x1, int y1, int x2, int y2) {
-        int dx = Math.abs(x2 - x1);
-        int dy = Math.abs(y2 - y1);
-        int sx = x1 < x2 ? 1 : -1;
-        int sy = y1 < y2 ? 1 : -1;
-        int err = dx - dy;
+        // ใช้ Polygon แทน drawLine เพื่อประสิทธิภาพที่ดีกว่า
+        Polygon line = new Polygon();
+        line.addPoint(x1, y1);
+        line.addPoint(x2, y2);
+        g.drawPolygon(line);
+    }
 
-        int x = x1, y = y1;
-        while (true) {
-            // Use setPixel instead of fillRect
-            setPixel(g, x, y);
-            if (x == x2 && y == y2)
-                break;
-            int e2 = 2 * err;
-            if (e2 > -dy) {
-                err -= dy;
-                x += sx;
-            }
-            if (e2 < dx) {
-                err += dx;
-                y += sy;
-            }
+    // Helper method to create circle polygon
+    private Polygon createCirclePolygon(int xc, int yc, int r) {
+        Polygon circle = new Polygon();
+        for (int angle = 0; angle < 360; angle += 5) {
+            double rad = Math.toRadians(angle);
+            int x = xc + (int) (r * Math.cos(rad));
+            int y = yc + (int) (r * Math.sin(rad));
+            circle.addPoint(x, y);
         }
+        return circle;
     }
 
-    // Helper method to set a single pixel
-    private void setPixel(Graphics g, int x, int y) {
-        // Draw a 1x1 rectangle using drawLine (which is allowed)
-        g.drawLine(x, y, x, y);
-    }
-
-    // Helper method to fill a rectangle using horizontal lines
-    private void fillRectangle(Graphics g, int x, int y, int width, int height) {
-        for (int i = 0; i < height; i++) {
-            g.drawLine(x, y + i, x + width - 1, y + i);
+    // Helper method to create ellipse polygon
+    private Polygon createEllipsePolygon(int xc, int yc, int rx, int ry) {
+        Polygon ellipse = new Polygon();
+        for (int angle = 0; angle < 360; angle += 5) {
+            double rad = Math.toRadians(angle);
+            int x = xc + (int) (rx * Math.cos(rad));
+            int y = yc + (int) (ry * Math.sin(rad));
+            ellipse.addPoint(x, y);
         }
+        return ellipse;
     }
 
-    private void drawBezierCurve(Graphics g, int x1, int y1, int x2, int y2, int x3, int y3, int x4, int y4) {
-        for (double t = 0; t <= 1; t += 0.01) {
-            double x = Math.pow(1 - t, 3) * x1 + 3 * Math.pow(1 - t, 2) * t * x2 +
-                    3 * (1 - t) * Math.pow(t, 2) * x3 + Math.pow(t, 3) * x4;
-            double y = Math.pow(1 - t, 3) * y1 + 3 * Math.pow(1 - t, 2) * t * y2 +
-                    3 * (1 - t) * Math.pow(t, 2) * y3 + Math.pow(t, 3) * y4;
-            setPixel(g, (int) x, (int) y);
-        }
+    // Helper method to create rectangle polygon
+    private Polygon createRectanglePolygon(int x, int y, int width, int height) {
+        Polygon rect = new Polygon();
+        rect.addPoint(x, y);
+        rect.addPoint(x + width, y);
+        rect.addPoint(x + width, y + height);
+        rect.addPoint(x, y + height);
+        return rect;
     }
 
-    private void drawMidpointCircle(Graphics g, int xc, int yc, int r) {
-        int x = 0, y = r, d = 1 - r;
-        plotCirclePoints(g, xc, yc, x, y);
-        while (x < y) {
-            if (d < 0)
-                d += 2 * x + 3;
-            else {
-                d += 2 * (x - y) + 5;
-                y--;
-            }
-            x++;
-            plotCirclePoints(g, xc, yc, x, y);
-        }
-    }
-
-    private void drawMidpointEllipse(Graphics g, int xc, int yc, int rx, int ry) {
-        int x = 0, y = ry;
-        int rx2 = rx * rx, ry2 = ry * ry;
-        int twoRx2 = 2 * rx2, twoRy2 = 2 * ry2;
-        int px = 0, py = twoRx2 * y;
-
-        // Region 1
-        int p = (int) (ry2 - rx2 * ry + 0.25 * rx2);
-        while (px < py) {
-            plotEllipsePoints(g, xc, yc, x, y);
-            x++;
-            px += twoRy2;
-            if (p < 0) {
-                p += ry2 + px;
-            } else {
-                y--;
-                py -= twoRx2;
-                p += ry2 + px - py;
-            }
-        }
-
-        // Region 2
-        p = (int) (ry2 * (x + 0.5) * (x + 0.5) + rx2 * (y - 1) * (y - 1) - rx2 * ry2);
-        while (y > 0) {
-            plotEllipsePoints(g, xc, yc, x, y);
-            y--;
-            py -= twoRx2;
-            if (p > 0) {
-                p += rx2 - py;
-            } else {
-                x++;
-                px += twoRy2;
-                p += rx2 - py + px;
-            }
-        }
-    }
-
-    private void plotCirclePoints(Graphics g, int xc, int yc, int x, int y) {
-        setPixel(g, xc + x, yc + y);
-        setPixel(g, xc - x, yc + y);
-        setPixel(g, xc + x, yc - y);
-        setPixel(g, xc - x, yc - y);
-        setPixel(g, xc + y, yc + x);
-        setPixel(g, xc - y, yc + x);
-        setPixel(g, xc + y, yc - x);
-        setPixel(g, xc - y, yc - x);
-    }
-
-    private void plotEllipsePoints(Graphics g, int xc, int yc, int x, int y) {
-        setPixel(g, xc + x, yc + y);
-        setPixel(g, xc - x, yc + y);
-        setPixel(g, xc + x, yc - y);
-        setPixel(g, xc - x, yc - y);
-    }
-
+    // Fill circle using Polygon
     private void fillCircle(Graphics g, int xc, int yc, int r) {
-        for (int y = -r; y <= r; y++) {
-            for (int x = -r; x <= r; x++) {
-                if (x * x + y * y <= r * r) {
-                    setPixel(g, xc + x, yc + y);
-                }
-            }
-        }
+        Polygon circle = createCirclePolygon(xc, yc, r);
+        g.fillPolygon(circle);
     }
 
+    // Draw circle outline using Polygon
+    private void drawCircle(Graphics g, int xc, int yc, int r) {
+        Polygon circle = createCirclePolygon(xc, yc, r);
+        g.drawPolygon(circle);
+    }
+
+    // Fill ellipse using Polygon
     private void fillEllipse(Graphics g, int xc, int yc, int rx, int ry) {
-        for (int y = -ry; y <= ry; y++) {
-            for (int x = -rx; x <= rx; x++) {
-                if ((x * x * ry * ry + y * y * rx * rx) <= (rx * rx * ry * ry)) {
-                    setPixel(g, xc + x, yc + y);
-                }
-            }
-        }
+        Polygon ellipse = createEllipsePolygon(xc, yc, rx, ry);
+        g.fillPolygon(ellipse);
+    }
+
+    // Draw ellipse outline using Polygon
+    private void drawEllipse(Graphics g, int xc, int yc, int rx, int ry) {
+        Polygon ellipse = createEllipsePolygon(xc, yc, rx, ry);
+        g.drawPolygon(ellipse);
+    }
+
+    // Fill rectangle using Polygon
+    private void fillRectangle(Graphics g, int x, int y, int width, int height) {
+        Polygon rect = createRectanglePolygon(x, y, width, height);
+        g.fillPolygon(rect);
+    }
+
+    // Draw rectangle outline using Polygon
+    private void drawRectangle(Graphics g, int x, int y, int width, int height) {
+        Polygon rect = createRectanglePolygon(x, y, width, height);
+        g.drawPolygon(rect);
+    }
+
+    // Create BufferedImage for circle
+    private BufferedImage createCircleImage(int radius, Color color) {
+        BufferedImage img = new BufferedImage(radius * 2 + 2, radius * 2 + 2, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2d = img.createGraphics();
+        g2d.setColor(color);
+        g2d.fillOval(1, 1, radius * 2, radius * 2);
+        g2d.dispose();
+        return img;
+    }
+
+    // Create BufferedImage for ellipse
+    private BufferedImage createEllipseImage(int width, int height, Color color) {
+        BufferedImage img = new BufferedImage(width + 2, height + 2, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2d = img.createGraphics();
+        g2d.setColor(color);
+        g2d.fillOval(1, 1, width, height);
+        g2d.dispose();
+        return img;
+    }
+
+    // Create BufferedImage for rectangle
+    private BufferedImage createRectangleImage(int width, int height, Color color) {
+        BufferedImage img = new BufferedImage(width + 2, height + 2, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2d = img.createGraphics();
+        g2d.setColor(color);
+        g2d.fillRect(1, 1, width, height);
+        g2d.dispose();
+        return img;
+    }
+
+    // Draw circle using BufferedImage
+    private void drawCircleImage(Graphics g, int x, int y, int radius, Color color) {
+        BufferedImage img = createCircleImage(radius, color);
+        g.drawImage(img, x - radius - 1, y - radius - 1, null);
+    }
+
+    // Draw ellipse using BufferedImage
+    private void drawEllipseImage(Graphics g, int x, int y, int width, int height, Color color) {
+        BufferedImage img = createEllipseImage(width, height, color);
+        g.drawImage(img, x - width/2 - 1, y - height/2 - 1, null);
+    }
+
+    // Draw rectangle using BufferedImage
+    private void drawRectangleImage(Graphics g, int x, int y, int width, int height, Color color) {
+        BufferedImage img = createRectangleImage(width, height, color);
+        g.drawImage(img, x - 1, y - 1, null);
     }
 
     private void startFlash() {
@@ -941,9 +935,9 @@ public class main extends JPanel implements ActionListener {
 
         // Darker ripples
         g.setColor(new Color(200, 200, 200, 60));
-        drawMidpointCircle(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2 - 30);
-        drawMidpointCircle(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2 - 50);
-        drawMidpointCircle(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2 - 70);
+        drawCircle(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2 - 30);
+        drawCircle(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2 - 50);
+        drawCircle(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2 - 70);
 
         // Grass around puddle (keep it)
         g.setColor(new Color(0, 100, 0));
@@ -1132,7 +1126,11 @@ public class main extends JPanel implements ActionListener {
                 double normalizedX = (double) (width / 2 - 1 - j) / (width / 2); // Flip left half
                 double normalizedY = (double) (i - height / 2) / (height / 2);
                 if (normalizedX * normalizedX + normalizedY * normalizedY <= 1.0) {
-                    setPixel(g, x - offset + j, y + i);
+                    // ใช้ Polygon สำหรับจุดเดียว
+                    Polygon point = new Polygon();
+                    point.addPoint(x - offset + j, y + i);
+                    point.addPoint(x - offset + j, y + i);
+                    g.drawPolygon(point);
                 }
             }
         }
@@ -1144,7 +1142,11 @@ public class main extends JPanel implements ActionListener {
                 double normalizedX = (double) (j) / (width / 2); // Flip right half
                 double normalizedY = (double) (i - height / 2) / (height / 2);
                 if (normalizedX * normalizedX + normalizedY * normalizedY <= 1.0) {
-                    setPixel(g, x + offset + j, y + i);
+                    // ใช้ Polygon สำหรับจุดเดียว
+                    Polygon point = new Polygon();
+                    point.addPoint(x + offset + j, y + i);
+                    point.addPoint(x + offset + j, y + i);
+                    g.drawPolygon(point);
                 }
             }
         }
@@ -1345,7 +1347,7 @@ public class main extends JPanel implements ActionListener {
             // Only draw if alpha is significant to reduce flickering
             if (alpha > 0.1f) {
                 g.setColor(Color.WHITE);
-                drawMidpointCircle(g, x, y, size / 2);
+                drawCircle(g, x, y, size / 2);
                 g.setColor(new Color(255, 255, 255, (int) (alpha * 150)));
                 fillEllipse(g, x - size / 4 + size / 8, y - size / 3 + size / 8, size / 8, size / 8);
             }
@@ -1397,7 +1399,11 @@ public class main extends JPanel implements ActionListener {
 
                     // Check if point is inside heart shape using better heart equation
                     if (isInsideHeart(nx, ny)) {
-                        setPixel(g, cx + x, cy + y);
+                        // ใช้ Polygon สำหรับจุดเดียว
+                        Polygon point = new Polygon();
+                        point.addPoint(cx + x, cy + y);
+                        point.addPoint(cx + x, cy + y);
+                        g.drawPolygon(point);
                     }
                 }
             }
@@ -1458,7 +1464,7 @@ public class main extends JPanel implements ActionListener {
             // Shockwave ring using drawMidpointCircle
             if (shockwaveAlpha > 0f) {
                 g.setColor(new Color(255, 255, 255, (int) (shockwaveAlpha * 255)));
-                drawMidpointCircle(g, x, y, shockwaveRadius);
+                drawCircle(g, x, y, shockwaveRadius);
             }
         }
     }
@@ -1602,9 +1608,9 @@ public class main extends JPanel implements ActionListener {
                 puddleHeight / 6);
 
         g.setColor(new Color(255, 255, 255, 100));
-        drawMidpointCircle(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2 - 30);
-        drawMidpointCircle(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2 - 50);
-        drawMidpointCircle(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2 - 70);
+        drawCircle(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2 - 30);
+        drawCircle(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2 - 50);
+        drawCircle(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2 - 70);
 
         g.setColor(new Color(0, 100, 0));
         for (int i = 0; i < 12; i++) {
