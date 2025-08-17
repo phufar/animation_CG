@@ -24,10 +24,10 @@ public class main extends JPanel implements ActionListener {
     private int introStep = 0;
     private long introStartTime = System.currentTimeMillis();
     private String[] introTexts = {
-        "In my final breath,\nall I saw was the blinding glow\nthe last light before the dark claimed me",
-        "Now... the wheel turns\nIt's time for me to be reborn",
-        "The last memory that clung to me\n was the simple truth that\na male mosquito lives only seven days",
-        "Such a brief flicker of existence, isn't it?"
+            "In my final breath,\nall I saw was the blinding glow\nthe last light before the dark claimed me",
+            "Now... the wheel turns\nIt's time for me to be reborn",
+            "The last memory that clung to me\n was the simple truth that\na male mosquito lives only seven days",
+            "Such a brief flicker of existence, isn't it?"
     };
     private boolean isFlashing = false;
 
@@ -48,13 +48,13 @@ public class main extends JPanel implements ActionListener {
     ArrayList<Integer> cloudSpeeds = new ArrayList<>();
     private ArrayList<Seaweed> seaweeds;
     private ArrayList<SeaGrass> seaGrasses;
-    
+
     // Puddle on the ground
     private int puddleX = 30;
     private int puddleY = 500;
     private int puddleWidth = 500;
     private int puddleHeight = 60;
-    
+
     // Forest scene variables
     private ArrayList<Tree> trees;
     private ArrayList<Bush> bushes;
@@ -77,6 +77,9 @@ public class main extends JPanel implements ActionListener {
     private ArrayList<SmokeParticle> smokeParticles;
     private int explosionRadius = 0;
     private boolean explosionStarted = false;
+    private boolean underwaterTransition = false;
+    private double underwaterMosquitoY = 100;
+    private double eggTransformationProgress = 0.0;
     private int shockwaveRadius = 0;
     private float shockwaveAlpha = 0f;
     private float flashAlpha = 0f;
@@ -90,11 +93,13 @@ public class main extends JPanel implements ActionListener {
         int sx = x1 < x2 ? 1 : -1;
         int sy = y1 < y2 ? 1 : -1;
         int err = dx - dy;
-        
+
         int x = x1, y = y1;
         while (true) {
-            g.fillRect(x, y, 1, 1);
-            if (x == x2 && y == y2) break;
+            // Use setPixel instead of fillRect
+            setPixel(g, x, y);
+            if (x == x2 && y == y2)
+                break;
             int e2 = 2 * err;
             if (e2 > -dy) {
                 err -= dy;
@@ -106,17 +111,30 @@ public class main extends JPanel implements ActionListener {
             }
         }
     }
-    
-    private void drawBezierCurve(Graphics g, int x1, int y1, int x2, int y2, int x3, int y3, int x4, int y4) {
-        for (double t = 0; t <= 1; t += 0.01) {
-            double x = Math.pow(1-t, 3) * x1 + 3 * Math.pow(1-t, 2) * t * x2 + 
-                      3 * (1-t) * Math.pow(t, 2) * x3 + Math.pow(t, 3) * x4;
-            double y = Math.pow(1-t, 3) * y1 + 3 * Math.pow(1-t, 2) * t * y2 + 
-                      3 * (1-t) * Math.pow(t, 2) * y3 + Math.pow(t, 3) * y4;
-            g.fillRect((int)x, (int)y, 1, 1);
+
+    // Helper method to set a single pixel
+    private void setPixel(Graphics g, int x, int y) {
+        // Draw a 1x1 rectangle using drawLine (which is allowed)
+        g.drawLine(x, y, x, y);
+    }
+
+    // Helper method to fill a rectangle using horizontal lines
+    private void fillRectangle(Graphics g, int x, int y, int width, int height) {
+        for (int i = 0; i < height; i++) {
+            g.drawLine(x, y + i, x + width - 1, y + i);
         }
     }
-    
+
+    private void drawBezierCurve(Graphics g, int x1, int y1, int x2, int y2, int x3, int y3, int x4, int y4) {
+        for (double t = 0; t <= 1; t += 0.01) {
+            double x = Math.pow(1 - t, 3) * x1 + 3 * Math.pow(1 - t, 2) * t * x2 +
+                    3 * (1 - t) * Math.pow(t, 2) * x3 + Math.pow(t, 3) * x4;
+            double y = Math.pow(1 - t, 3) * y1 + 3 * Math.pow(1 - t, 2) * t * y2 +
+                    3 * (1 - t) * Math.pow(t, 2) * y3 + Math.pow(t, 3) * y4;
+            setPixel(g, (int) x, (int) y);
+        }
+    }
+
     private void drawMidpointCircle(Graphics g, int xc, int yc, int r) {
         int x = 0, y = r, d = 1 - r;
         plotCirclePoints(g, xc, yc, x, y);
@@ -131,15 +149,15 @@ public class main extends JPanel implements ActionListener {
             plotCirclePoints(g, xc, yc, x, y);
         }
     }
-    
+
     private void drawMidpointEllipse(Graphics g, int xc, int yc, int rx, int ry) {
         int x = 0, y = ry;
         int rx2 = rx * rx, ry2 = ry * ry;
         int twoRx2 = 2 * rx2, twoRy2 = 2 * ry2;
         int px = 0, py = twoRx2 * y;
-        
+
         // Region 1
-        int p = (int)(ry2 - rx2 * ry + 0.25 * rx2);
+        int p = (int) (ry2 - rx2 * ry + 0.25 * rx2);
         while (px < py) {
             plotEllipsePoints(g, xc, yc, x, y);
             x++;
@@ -152,9 +170,9 @@ public class main extends JPanel implements ActionListener {
                 p += ry2 + px - py;
             }
         }
-        
+
         // Region 2
-        p = (int)(ry2 * (x + 0.5) * (x + 0.5) + rx2 * (y - 1) * (y - 1) - rx2 * ry2);
+        p = (int) (ry2 * (x + 0.5) * (x + 0.5) + rx2 * (y - 1) * (y - 1) - rx2 * ry2);
         while (y > 0) {
             plotEllipsePoints(g, xc, yc, x, y);
             y--;
@@ -168,40 +186,40 @@ public class main extends JPanel implements ActionListener {
             }
         }
     }
-    
+
     private void plotCirclePoints(Graphics g, int xc, int yc, int x, int y) {
-        g.fillRect(xc + x, yc + y, 1, 1);
-        g.fillRect(xc - x, yc + y, 1, 1);
-        g.fillRect(xc + x, yc - y, 1, 1);
-        g.fillRect(xc - x, yc - y, 1, 1);
-        g.fillRect(xc + y, yc + x, 1, 1);
-        g.fillRect(xc - y, yc + x, 1, 1);
-        g.fillRect(xc + y, yc - x, 1, 1);
-        g.fillRect(xc - y, yc - x, 1, 1);
+        setPixel(g, xc + x, yc + y);
+        setPixel(g, xc - x, yc + y);
+        setPixel(g, xc + x, yc - y);
+        setPixel(g, xc - x, yc - y);
+        setPixel(g, xc + y, yc + x);
+        setPixel(g, xc - y, yc + x);
+        setPixel(g, xc + y, yc - x);
+        setPixel(g, xc - y, yc - x);
     }
-    
+
     private void plotEllipsePoints(Graphics g, int xc, int yc, int x, int y) {
-        g.fillRect(xc + x, yc + y, 1, 1);
-        g.fillRect(xc - x, yc + y, 1, 1);
-        g.fillRect(xc + x, yc - y, 1, 1);
-        g.fillRect(xc - x, yc - y, 1, 1);
+        setPixel(g, xc + x, yc + y);
+        setPixel(g, xc - x, yc + y);
+        setPixel(g, xc + x, yc - y);
+        setPixel(g, xc - x, yc - y);
     }
-    
+
     private void fillCircle(Graphics g, int xc, int yc, int r) {
         for (int y = -r; y <= r; y++) {
             for (int x = -r; x <= r; x++) {
                 if (x * x + y * y <= r * r) {
-                    g.fillRect(xc + x, yc + y, 1, 1);
+                    setPixel(g, xc + x, yc + y);
                 }
             }
         }
     }
-    
+
     private void fillEllipse(Graphics g, int xc, int yc, int rx, int ry) {
         for (int y = -ry; y <= ry; y++) {
             for (int x = -rx; x <= rx; x++) {
                 if ((x * x * ry * ry + y * y * rx * rx) <= (rx * rx * ry * ry)) {
-                    g.fillRect(xc + x, yc + y, 1, 1);
+                    setPixel(g, xc + x, yc + y);
                 }
             }
         }
@@ -231,7 +249,7 @@ public class main extends JPanel implements ActionListener {
             clouds.add(new Point(rand.nextInt(WIDTH), rand.nextInt(200) + 50));
             cloudSpeeds.add(1 + rand.nextInt(3));
         }
-        
+
         // Seaweed stalks along bottom
         int seaweedCount = 15;
         for (int i = 0; i < seaweedCount; i++) {
@@ -255,13 +273,13 @@ public class main extends JPanel implements ActionListener {
             double speed = 0.015 + rand.nextDouble() * 0.02;
             seaGrasses.add(new SeaGrass(baseX, blades, spread, minH, maxH, amp, speed));
         }
-        
+
         // Initialize forest elements
         trees = new ArrayList<>();
         bushes = new ArrayList<>();
         birds = new ArrayList<>();
         floatingLeaves = new ArrayList<>();
-        
+
         // Create trees across the bottom
         int treeCount = 8;
         for (int i = 0; i < treeCount; i++) {
@@ -270,7 +288,7 @@ public class main extends JPanel implements ActionListener {
             int trunkWidth = 8 + rand.nextInt(6);
             trees.add(new Tree(baseX, height, trunkWidth));
         }
-        
+
         // Create bushes between trees
         int bushCount = 12;
         for (int i = 0; i < bushCount; i++) {
@@ -278,21 +296,21 @@ public class main extends JPanel implements ActionListener {
             int size = 20 + rand.nextInt(25);
             bushes.add(new Bush(baseX, size));
         }
-        
+
         // Create flying birds
         for (int i = 0; i < 5; i++) {
             int startX = rand.nextInt(WIDTH);
             int startY = 80 + rand.nextInt(100);
             birds.add(new Bird(startX, startY));
         }
-        
+
         // Create floating leaves
         for (int i = 0; i < 15; i++) {
             int startX = rand.nextInt(WIDTH);
             int startY = 150 + rand.nextInt(100);
             floatingLeaves.add(new FloatingLeaf(startX, startY));
         }
-        
+
         meetingX = WIDTH / 2.0;
         meetingY = 120;
         femaleMosquitoX = (meetingX + 60);
@@ -312,15 +330,15 @@ public class main extends JPanel implements ActionListener {
 
     private void drawScene(Graphics g) {
         if (sceneState == 6 && shakeIntensity > 0) {
-            int sx = (int)((rand.nextDouble() * 2 - 1) * shakeIntensity);
-            int sy = (int)((rand.nextDouble() * 2 - 1) * shakeIntensity);
+            int sx = (int) ((rand.nextDouble() * 2 - 1) * shakeIntensity);
+            int sy = (int) ((rand.nextDouble() * 2 - 1) * shakeIntensity);
             g.translate(sx, sy);
         }
 
         // พื้นหลัง
         if (sceneState <= 1 || sceneState == 5) {
             g.setColor(new Color(70, 130, 150));
-            g.fillRect(0, 0, WIDTH, HEIGHT);
+            fillRectangle(g, 0, 0, WIDTH, HEIGHT);
             drawBottomGround(g);
             drawSeaGrass(g);
             drawSeaweed(g);
@@ -330,13 +348,15 @@ public class main extends JPanel implements ActionListener {
             }
         } else if (sceneState >= 2 && sceneState <= 4) {
             drawSkyBackground(g, 0);
+        } else if (sceneState == 5) {
+            // Sky background will be drawn in case 5
         }
-        
+
         if (sceneState == -1) {
             g.setColor(Color.BLACK);
-            g.fillRect(0, 0, WIDTH, HEIGHT);
+            fillRectangle(g, 0, 0, WIDTH, HEIGHT);
 
-            g.setColor(new Color(1f, 1f, 1f, introAlpha));
+            g.setColor(new Color(255, 255, 255, (int) (introAlpha * 255)));
             g.setFont(new Font("SansSerif", Font.BOLD, 26));
             String text = introTexts[introStep];
             String[] lines = text.split("\n");
@@ -347,10 +367,10 @@ public class main extends JPanel implements ActionListener {
             return;
         }
 
-        //flash check
+        // flash check
         if (isFlashing) {
-            g.setColor(new Color(1f, 1f, 1f, flashAlpha));
-            g.fillRect(0, 0, getWidth(), getHeight());
+            g.setColor(new Color(255, 255, 255, (int) (flashAlpha * 255)));
+            fillRectangle(g, 0, 0, getWidth(), getHeight());
         }
 
         // --- วาดองค์ประกอบหลักตามฉาก ---
@@ -386,8 +406,17 @@ public class main extends JPanel implements ActionListener {
                 drawMeteor(g, meteorX - 150, meteorY);
             }
             case 5 -> {
-                drawDeadMosquito(g, mosquitoX_air, mosquitoY_air, corpseRotationDeg);
-                drawDeadMosquito(g, femaleMosquitoX + 60, femaleMosquitoY, femaleCorpseRotationDeg);
+                if (!underwaterTransition) {
+                    // Use original sky background but with destroyed elements
+                    drawDestroyedSkyBackground(g);
+                    // Position mosquitoes closer together in center of puddle
+                    drawDeadMosquito(g, mosquitoX_air, mosquitoY_air, corpseRotationDeg);
+                    drawDeadMosquito(g, femaleMosquitoX, femaleMosquitoY, femaleCorpseRotationDeg);
+
+                } else {
+                    // Underwater scene
+                    drawUnderwaterScene(g);
+                }
             }
             case 6 -> {
                 drawExplosion(g, (int) mosquitoX_air, (int) mosquitoY_air);
@@ -395,11 +424,11 @@ public class main extends JPanel implements ActionListener {
                 drawSmokeParticles(g);
             }
         }
-        
+
         // Screen flash overlay on top of everything
         if (flashAlpha > 0f) {
-            g.setColor(new Color(1f, 1f, 1f, Math.min(1f, flashAlpha)));
-            g.fillRect(0, 0, WIDTH, HEIGHT);
+            g.setColor(new Color(255, 255, 255, (int) (Math.min(1f, flashAlpha) * 255)));
+            fillRectangle(g, 0, 0, WIDTH, HEIGHT);
         }
     }
 
@@ -519,14 +548,23 @@ public class main extends JPanel implements ActionListener {
                 }
             }
             case 5 -> {
-                // Falling corpse physics with rotation and water impact (both mosquitoes)
-                // Male
+                // Falling corpse physics with rotation and puddle impact (both mosquitoes)
+                int centerPuddleX = puddleX + puddleWidth / 2;
+
+                // Male - fall to center of puddle
                 if (!corpseOnWater) {
-                    corpseVy += 0.5; // gravity
+                    corpseVy += 1.0; // Faster gravity
                     mosquitoY_air += corpseVy;
+                    // Move X position towards center of puddle
+                    if (mosquitoX_air < centerPuddleX - 15) {
+                        mosquitoX_air += 4.0; // Faster movement
+                    } else if (mosquitoX_air > centerPuddleX - 15) {
+                        mosquitoX_air -= 4.0; // Faster movement
+                    }
                     corpseRotationDeg += corpseRotSpeedDeg;
-                    if (mosquitoY_air >= eggBaseY) {
-                        mosquitoY_air = eggBaseY;
+                    if (mosquitoY_air >= puddleY + puddleHeight) {
+                        mosquitoY_air = puddleY + puddleHeight;
+                        mosquitoX_air = centerPuddleX - 15; // Snap to center
                         corpseOnWater = true;
                         corpseVy *= -0.25; // small bounce
                         corpseRotSpeedDeg *= 0.5; // damp rotation
@@ -540,15 +578,27 @@ public class main extends JPanel implements ActionListener {
                     corpseRotSpeedDeg *= 0.85;
                     mosquitoY_air += corpseVy;
                     corpseRotationDeg += corpseRotSpeedDeg;
+
+                    // Faster sinking into puddle
+                    if (mosquitoY_air < puddleY + puddleHeight + 20) {
+                        mosquitoY_air += 1.0; // Faster sinking
+                    }
                 }
 
-                // Female
+                // Female - fall to center of puddle
                 if (!femaleCorpseOnWater) {
-                    femaleCorpseVy += 0.5;
+                    femaleCorpseVy += 1.0; // Faster gravity
                     femaleMosquitoY += femaleCorpseVy;
+                    // Move X position towards center of puddle
+                    if (femaleMosquitoX < centerPuddleX + 15) {
+                        femaleMosquitoX += 4.0; // Faster movement
+                    } else if (femaleMosquitoX > centerPuddleX + 15) {
+                        femaleMosquitoX -= 4.0; // Faster movement
+                    }
                     femaleCorpseRotationDeg += femaleCorpseRotSpeedDeg;
-                    if (femaleMosquitoY >= eggBaseY) {
-                        femaleMosquitoY = eggBaseY;
+                    if (femaleMosquitoY >= puddleY + puddleHeight) {
+                        femaleMosquitoY = puddleY + puddleHeight;
+                        femaleMosquitoX = centerPuddleX + 15; // Snap to center
                         femaleCorpseOnWater = true;
                         femaleCorpseVy *= -0.25;
                         femaleCorpseRotSpeedDeg *= 0.5;
@@ -562,32 +612,66 @@ public class main extends JPanel implements ActionListener {
                     femaleCorpseRotSpeedDeg *= 0.85;
                     femaleMosquitoY += femaleCorpseVy;
                     femaleCorpseRotationDeg += femaleCorpseRotSpeedDeg;
+
+                    // Faster sinking into puddle
+                    if (femaleMosquitoY < puddleY + puddleHeight + 20) {
+                        femaleMosquitoY += 1.0; // Faster sinking
+                    }
                 }
 
-                // After both are on water and a short linger, reset scene
-                if (corpseOnWater && femaleCorpseOnWater && frameCount > 60) {
+                // After both are sunk in puddle and a short linger, transition to underwater
+                if (corpseOnWater && femaleCorpseOnWater &&
+                        mosquitoY_air >= puddleY + puddleHeight + 20 &&
+                        femaleMosquitoY >= puddleY + puddleHeight + 20 &&
+                        frameCount > 30) { // Faster transition
+                    underwaterTransition = true;
+                    underwaterMosquitoY = 0; // Start from top of screen
+                    eggTransformationProgress = 0.0;
                     frameCount = 0;
-                    sceneState = 0;
-                    eggSwingAngle = 0;
-                    bubbles.clear();
-                    heart.visible = false;
-                    meteorX = -100;
-                    meteorY = -100;
-                    explosionParticles.clear();
-                    smokeParticles.clear();
+                    // Reset corpse positions to prevent further sinking
+                    mosquitoY_air = puddleY + puddleHeight + 20;
+                    femaleMosquitoY = puddleY + puddleHeight + 20;
+                    System.out.println("Transitioning to underwater scene!"); // Debug
                 }
-                
-                // Reset corpse physics for next cycle
-                if (corpseOnWater && femaleCorpseOnWater && frameCount > 60) {
-                    corpseVy = 0.0;
-                    corpseRotationDeg = 0.0;
-                    corpseRotSpeedDeg = 0.0;
-                    femaleCorpseVy = 0.0;
-                    femaleCorpseRotationDeg = 0.0;
-                    femaleCorpseRotSpeedDeg = 0.0;
-                    corpseOnWater = false;
-                    femaleCorpseOnWater = false;
-                    corpseSettleStarted = false;
+
+                // Underwater scene logic
+                if (underwaterTransition) {
+                    // Simple, smooth sinking to egg position - no bouncing
+                    if (underwaterMosquitoY < eggBaseY) {
+                        underwaterMosquitoY += 15.0; // Very fast, direct sinking
+
+                        // Prevent overshooting and lock position
+                        if (underwaterMosquitoY >= eggBaseY) {
+                            underwaterMosquitoY = eggBaseY;
+                        }
+                    }
+
+                    // Once at egg position, start transformation
+                    if (underwaterMosquitoY >= eggBaseY) {
+                        eggTransformationProgress += 0.15; // Very fast transformation
+
+                        // When transformation complete, reset to scene 0
+                        if (eggTransformationProgress >= 1.0) {
+                            frameCount = 0;
+                            sceneState = 0;
+                            underwaterTransition = false;
+                            eggSwingAngle = 0;
+                            bubbles.clear();
+                            heart.visible = false;
+                            meteorX = -100;
+                            meteorY = -100;
+                            explosionParticles.clear();
+                            smokeParticles.clear();
+                            // Reset all corpse variables
+                            corpseOnWater = false;
+                            femaleCorpseOnWater = false;
+                            corpseSettleStarted = false;
+                            // Reset underwater variables
+                            underwaterMosquitoY = 0;
+                            eggTransformationProgress = 0.0;
+                            System.out.println("Animation complete! Returning to scene 0");
+                        }
+                    }
                 }
             }
             case 6 -> {
@@ -672,7 +756,7 @@ public class main extends JPanel implements ActionListener {
                 }
             }
         }
-        
+
         // In scene 5 (corpse falling), hide clouds since we're underwater
         if (sceneState == 5) {
             // Don't draw clouds in underwater scene
@@ -683,9 +767,9 @@ public class main extends JPanel implements ActionListener {
     // เพิ่ม method วาดยุงตัวเมียและหัวใจ
     private void drawFemaleMosquito(Graphics g, double x, double y) {
         // Use custom algorithms instead of Graphics 2D
-        int centerX = (int)x;
-        int centerY = (int)y;
-        
+        int centerX = (int) x;
+        int centerY = (int) y;
+
         // Body using fillEllipse
         g.setColor(new Color(100, 20, 20));
         fillEllipse(g, centerX, centerY - 10, 5, 10); // Body
@@ -706,36 +790,34 @@ public class main extends JPanel implements ActionListener {
     }
 
     private void drawMeteor(Graphics g, double x, double y) {
-        int centerX = (int)x;
-        int centerY = (int)y;
+        int centerX = (int) x;
+        int centerY = (int) y;
         int size = 300;
 
         // Tail effect using fillEllipse
         g.setColor(new Color(255, 140, 0, 180));
-        fillEllipse(g, centerX + size/6, centerY - size, size/6, size);
+        fillEllipse(g, centerX + size / 6, centerY - size, size / 6, size);
 
         // Meteor body using fillEllipse
         g.setColor(new Color(180, 90, 40));
-        fillEllipse(g, centerX, centerY, size/2, size/2);
+        fillEllipse(g, centerX, centerY, size / 2, size / 2);
 
         // Inner heated core using fillEllipse
         g.setColor(new Color(255, 100, 0, 200));
-        fillEllipse(g, centerX + size/16, centerY + size/16, size*3/8, size*3/8);
+        fillEllipse(g, centerX + size / 16, centerY + size / 16, size * 3 / 8, size * 3 / 8);
 
         // Craters using fillEllipse
         g.setColor(new Color(50, 25, 0));
-        fillEllipse(g, centerX + size/6, centerY + size/6, size/20, size/20);
-        fillEllipse(g, centerX + size/4, centerY + size/8, size/16, size/16);
-        fillEllipse(g, centerX + size/8, centerY + size/4, size/24, size/24);
+        fillEllipse(g, centerX + size / 6, centerY + size / 6, size / 20, size / 20);
+        fillEllipse(g, centerX + size / 4, centerY + size / 8, size / 16, size / 16);
+        fillEllipse(g, centerX + size / 8, centerY + size / 4, size / 24, size / 24);
     }
 
     // --- เมธอดวาดฉากใหม่ ---
     private void drawSkyBackground(Graphics g, int waterLevel) {
-        // Sky gradient using fillRect (allowed)
+        // Sky gradient using fillRectangle (custom method) - fill entire screen
         g.setColor(new Color(135, 206, 250));
-        g.fillRect(0, 0, WIDTH, (HEIGHT - waterLevel) / 2);
-        g.setColor(new Color(240, 248, 255));
-        g.fillRect(0, (HEIGHT - waterLevel) / 2, WIDTH, (HEIGHT - waterLevel) / 2);
+        fillRectangle(g, 0, 0, WIDTH, HEIGHT);
 
         // Clouds using fillEllipse
         if (sceneState != 5) {
@@ -745,7 +827,7 @@ public class main extends JPanel implements ActionListener {
                 fillEllipse(g, cloud.x + 70, cloud.y, 40, 25);
             }
         }
-        
+
         if (sceneState >= 2 && sceneState <= 4) {
             drawForest(g);
             drawBirds(g);
@@ -753,10 +835,121 @@ public class main extends JPanel implements ActionListener {
         }
     }
 
+    // Destroyed sky background - original scene but with destroyed elements
+    private void drawDestroyedSkyBackground(Graphics g) {
+        // Sky background (same as original)
+        g.setColor(new Color(135, 206, 250));
+        fillRectangle(g, 0, 0, WIDTH, HEIGHT);
+
+        // Clouds (keep them)
+        g.setColor(Color.WHITE);
+        for (Point cloud : clouds) {
+            fillEllipse(g, cloud.x + 50, cloud.y + 20, 50, 20);
+            fillEllipse(g, cloud.x + 70, cloud.y, 40, 25);
+        }
+
+        // Ground with destroyed forest and changed water color
+        drawDestroyedGround(g);
+    }
+
+    // Destroyed ground - trees and bushes destroyed, water color changed
+    private void drawDestroyedGround(Graphics g) {
+        int groundY = HEIGHT - 180;
+
+        // Ground (keep it)
+        g.setColor(new Color(34, 139, 34));
+        fillRectangle(g, 0, groundY, WIDTH, HEIGHT - groundY);
+
+        // Grass texture (keep it)
+        g.setColor(new Color(0, 100, 0));
+        for (int i = 0; i < WIDTH; i += 8) {
+            int grassHeight = 3 + rand.nextInt(4);
+            drawBresenhamLine(g, i, groundY, i, groundY + grassHeight);
+        }
+
+        // Puddle with changed color (darker, more ominous)
+        drawDestroyedPuddle(g);
+
+        // No trees, no bushes, no birds, no floating leaves (destroyed by meteor)
+    }
+
+    // Destroyed puddle with changed color
+    private void drawDestroyedPuddle(Graphics g) {
+        // Darker water color to show destruction
+        g.setColor(new Color(0, 0, 0, 60));
+        fillEllipse(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2 + 8,
+                puddleHeight / 2 + 8);
+
+        g.setColor(new Color(50, 75, 128, 200)); // Darker blue
+        fillEllipse(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2, puddleHeight / 2);
+
+        // Darker highlights
+        g.setColor(new Color(200, 200, 200, 80));
+        fillEllipse(g, puddleX + 25 + puddleWidth / 8, puddleY + 12 + puddleHeight / 6, puddleWidth / 8,
+                puddleHeight / 6);
+        fillEllipse(g, puddleX + puddleWidth / 2 + puddleWidth / 10, puddleY + 15 + puddleHeight / 8, puddleWidth / 10,
+                puddleHeight / 8);
+        fillEllipse(g, puddleX + puddleWidth - 40 + puddleWidth / 12, puddleY + 10 + puddleHeight / 6, puddleWidth / 12,
+                puddleHeight / 6);
+
+        // Darker ripples
+        g.setColor(new Color(200, 200, 200, 60));
+        drawMidpointCircle(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2 - 30);
+        drawMidpointCircle(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2 - 50);
+        drawMidpointCircle(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2 - 70);
+
+        // Grass around puddle (keep it)
+        g.setColor(new Color(0, 100, 0));
+        for (int i = 0; i < 12; i++) {
+            int grassX = puddleX + (i * 18) + 15;
+            int grassHeight = 4 + rand.nextInt(4);
+            drawBresenhamLine(g, grassX, puddleY, grassX, puddleY - grassHeight);
+        }
+    }
+
+    // Underwater scene with floating mosquitoes that transform into egg
+    private void drawUnderwaterScene(Graphics g) {
+        // Underwater background
+        g.setColor(new Color(70, 130, 150));
+        fillRectangle(g, 0, 0, WIDTH, HEIGHT);
+
+        // Draw underwater elements
+        drawBottomGround(g);
+        drawSeaGrass(g);
+        drawSeaweed(g);
+        manageBubbles(g);
+
+        // Draw floating mosquitoes that slowly transform into egg
+        if (eggTransformationProgress < 1.0) {
+            // Draw mosquitoes with fading effect - smoother transition
+            float alpha = (float) (1.0 - eggTransformationProgress);
+            int mosquitoAlpha = Math.max(0, (int) (alpha * 255));
+
+            if (mosquitoAlpha > 0) {
+                g.setColor(new Color(50, 50, 50, mosquitoAlpha));
+                // Position mosquitoes at their current floating position
+                drawDeadMosquito(g, WIDTH / 2 - 15, (int) underwaterMosquitoY, 0);
+                drawDeadMosquito(g, WIDTH / 2 + 15, (int) underwaterMosquitoY, 0);
+            }
+
+            // Draw egg forming with smoother alpha transition
+            if (eggTransformationProgress > 0.05) { // Start egg formation very early
+                float eggAlpha = (float) ((eggTransformationProgress - 0.05) / 0.95);
+                int finalEggAlpha = Math.min(200, (int) (eggAlpha * 200));
+                g.setColor(new Color(139, 69, 19, finalEggAlpha));
+                drawMosquitoEgg(g);
+            }
+        } else {
+            // Fully transformed egg
+            g.setColor(new Color(139, 69, 19, 200));
+            drawMosquitoEgg(g);
+        }
+    }
+
     private void drawFlyingMosquito(Graphics g, double x, double y, boolean flapping, double angle) {
-        int centerX = (int)x;
-        int centerY = (int)y;
-        
+        int centerX = (int) x;
+        int centerY = (int) y;
+
         // Body using fillEllipse
         g.setColor(new Color(40, 40, 40));
         fillEllipse(g, centerX, centerY - 10, 5, 10);
@@ -779,9 +972,9 @@ public class main extends JPanel implements ActionListener {
     }
 
     private void drawDeadMosquito(Graphics g, double x, double y, double rotationDeg) {
-        int centerX = (int)x;
-        int centerY = (int)y;
-        
+        int centerX = (int) x;
+        int centerY = (int) y;
+
         // Body using fillEllipse
         g.setColor(new Color(50, 50, 50));
         fillEllipse(g, centerX, centerY - 10, 5, 10);
@@ -813,7 +1006,7 @@ public class main extends JPanel implements ActionListener {
     // --- โค้ดของฉากใต้น้ำ (แก้ไขสี) ---
     private void drawEvolvingMosquito(Graphics g, int x, int y, double progress) {
         x = x - 25;
-        
+
         g.setColor(new Color(40, 40, 40));
 
         if (progress < 0.2) {
@@ -826,9 +1019,9 @@ public class main extends JPanel implements ActionListener {
         } else {
             int headSize = (int) (8 * ((progress - 0.2) / 0.8));
             fillEllipse(g, x, y - 10, 5, 10);
-            fillEllipse(g, x, y - 20, headSize/2, headSize/2);
+            fillEllipse(g, x, y - 20, headSize / 2, headSize / 2);
         }
-        
+
         if (progress > 0.4) {
             g.setColor(Color.BLACK);
             int legLength = (int) (15 * ((progress - 0.4) / 0.6));
@@ -837,15 +1030,15 @@ public class main extends JPanel implements ActionListener {
             drawBresenhamLine(g, x, y - 10, x - legLength, y - 5);
             drawBresenhamLine(g, x, y - 10, x + legLength, y - 5);
         }
-        
+
         if (progress > 0.6) {
             int wingSize = (int) (25 * ((progress - 0.6) / 0.4));
             int wingAlpha = (int) (150 * ((progress - 0.6) / 0.4));
             g.setColor(new Color(200, 200, 200, wingAlpha));
             boolean flap = (y % 10 < 5);
             int wingYOffset = flap ? -5 : 0;
-            fillEllipse(g, x - wingSize/2, y - 15 + wingYOffset, wingSize/2, 7);
-            fillEllipse(g, x + wingSize/2, y - 15 + wingYOffset, wingSize/2, 7);
+            fillEllipse(g, x - wingSize / 2, y - 15 + wingYOffset, wingSize / 2, 7);
+            fillEllipse(g, x + wingSize / 2, y - 15 + wingYOffset, wingSize / 2, 7);
         }
     }
 
@@ -856,27 +1049,27 @@ public class main extends JPanel implements ActionListener {
         int y = eggBaseY;
         int width = 50;
         int height = 25;
-        
+
         // Draw left half of egg (arc from 90 to 270 degrees) - FLIPPED HORIZONTALLY
         for (int i = 0; i < height; i++) {
-            for (int j = 0; j < width/2; j++) {
+            for (int j = 0; j < width / 2; j++) {
                 // Calculate if point is inside left half ellipse - FLIPPED
-                double normalizedX = (double)(width/2 - 1 - j) / (width/2); // Flip left half
-                double normalizedY = (double)(i - height/2) / (height/2);
+                double normalizedX = (double) (width / 2 - 1 - j) / (width / 2); // Flip left half
+                double normalizedY = (double) (i - height / 2) / (height / 2);
                 if (normalizedX * normalizedX + normalizedY * normalizedY <= 1.0) {
-                    g.fillRect(x - offset + j, y + i, 1, 1);
+                    setPixel(g, x - offset + j, y + i);
                 }
             }
         }
-        
+
         // Draw right half of egg (arc from 270 to 90 degrees) - FLIPPED HORIZONTALLY
         for (int i = 0; i < height; i++) {
-            for (int j = 0; j < width/2; j++) {
+            for (int j = 0; j < width / 2; j++) {
                 // Calculate if point is inside right half ellipse - FLIPPED
-                double normalizedX = (double)(j) / (width/2); // Flip right half
-                double normalizedY = (double)(i - height/2) / (height/2);
+                double normalizedX = (double) (j) / (width / 2); // Flip right half
+                double normalizedY = (double) (i - height / 2) / (height / 2);
                 if (normalizedX * normalizedX + normalizedY * normalizedY <= 1.0) {
-                    g.fillRect(x + offset + j, y + i, 1, 1);
+                    setPixel(g, x + offset + j, y + i);
                 }
             }
         }
@@ -894,21 +1087,21 @@ public class main extends JPanel implements ActionListener {
         int y = eggBaseY;
         int width = 50;
         int height = 25;
-        
+
         // Use fillEllipse for egg
-        fillEllipse(g, x + width/2, y + height/2, width/2, height/2);
+        fillEllipse(g, x + width / 2, y + height / 2, width / 2, height / 2);
     }
 
     private void drawBottomGround(Graphics g) {
         int groundHeight = 80;
         int yStart = HEIGHT - groundHeight;
         g.setColor(new Color(194, 178, 128));
-        g.fillRect(0, yStart, WIDTH, groundHeight);
+        fillRectangle(g, 0, yStart, WIDTH, groundHeight);
         g.setColor(new Color(120, 120, 120));
         for (int i = 0; i < 15; i++) {
             int x = 20 + i * 40;
             int size = 10 + (i % 3) * 5;
-            fillEllipse(g, x + size/2, yStart + 20 + (i % 2) * 10 + size/2, size/2, size/2);
+            fillEllipse(g, x + size / 2, yStart + 20 + (i % 2) * 10 + size / 2, size / 2, size / 2);
         }
     }
 
@@ -944,39 +1137,40 @@ public class main extends JPanel implements ActionListener {
         }
 
         void draw(Graphics g, int baseY, int frame) {
-            double t = frame * swaySpeed;
+            // Reduce movement frequency for smoother animation
+            double t = frame * swaySpeed * 0.5;
             double segLen = (double) height / segments;
-            
+
             // Draw seaweed stalk using Bresenham lines
             g.setColor(new Color(20, 100, 60));
             int prevX = baseX;
             int prevY = baseY;
-            
+
             for (int i = 1; i <= segments; i++) {
                 double progress = (double) i / segments;
                 double ampFalloff = 1.0 - 0.4 * progress;
-                double dx = Math.sin(t + i * 0.6) * swayAmplitude * ampFalloff;
-                int nx = baseX + (int)dx;
-                int ny = baseY - (int)(segLen * i);
-                
+                double dx = Math.sin(t + i * 0.6) * swayAmplitude * ampFalloff * 0.7; // Reduced amplitude
+                int nx = baseX + (int) dx;
+                int ny = baseY - (int) (segLen * i);
+
                 // Draw line segment using Bresenham
                 drawBresenhamLine(g, prevX, prevY, nx, ny);
                 prevX = nx;
                 prevY = ny;
             }
 
-            // Small leaves using fillEllipse
+            // Small leaves using fillEllipse - reduced frequency
             g.setColor(new Color(30, 140, 80));
-            for (int i = 3; i < segments; i += 3) {
+            for (int i = 3; i < segments; i += 4) { // Increased spacing
                 double progress = (double) i / segments;
                 double ampFalloff = 1.0 - 0.4 * progress;
-                double dx = Math.sin(t + i * 0.6) * swayAmplitude * ampFalloff;
-                int nx = baseX + (int)dx;
-                int ny = baseY - (int)(segLen * i);
+                double dx = Math.sin(t + i * 0.6) * swayAmplitude * ampFalloff * 0.7;
+                int nx = baseX + (int) dx;
+                int ny = baseY - (int) (segLen * i);
                 int leafW = 8;
                 int leafH = 14;
-                fillEllipse(g, nx - leafW - 3 + leafW/2, ny - leafH/2 + leafH/2, leafW/2, leafH/2);
-                fillEllipse(g, nx + 3 + leafW/2, ny - leafH/2 + leafH/2, leafW/2, leafH/2);
+                fillEllipse(g, nx - leafW - 3 + leafW / 2, ny - leafH / 2 + leafH / 2, leafW / 2, leafH / 2);
+                fillEllipse(g, nx + 3 + leafW / 2, ny - leafH / 2 + leafH / 2, leafW / 2, leafH / 2);
             }
         }
     }
@@ -1002,24 +1196,26 @@ public class main extends JPanel implements ActionListener {
         }
 
         void draw(Graphics g, int baseY, int frame) {
-            double t = frame * swaySpeed;
+            // Reduce movement frequency for smoother animation
+            double t = frame * swaySpeed * 0.6;
             for (int i = 0; i < bladeCount; i++) {
                 int x = baseX + (int) ((i - bladeCount / 2.0) * (spread / (double) bladeCount));
                 int h = minHeight + (i * 37 % (maxHeight - minHeight + 1));
                 double localPhase = i * 0.45;
-                
+
                 // Draw blade using Bresenham lines
                 int prevX = x;
                 int prevY = baseY;
                 int segments = 5;
-                
+
                 for (int s = 1; s <= segments; s++) {
                     double p = s / (double) segments;
                     double ampFalloff = 1.0 - 0.5 * p;
-                    double dx = Math.sin(t + localPhase + p * 1.2) * swayAmplitude * ampFalloff;
-                    int nx = x + (int)dx;
-                    int ny = baseY - (int)(h * p);
-                    
+                    double dx = Math.sin(t + localPhase + p * 1.2) * swayAmplitude * ampFalloff * 0.6; // Reduced
+                                                                                                       // amplitude
+                    int nx = x + (int) dx;
+                    int ny = baseY - (int) (h * p);
+
                     drawBresenhamLine(g, prevX, prevY, nx, ny);
                     prevX = nx;
                     prevY = ny;
@@ -1029,12 +1225,14 @@ public class main extends JPanel implements ActionListener {
     }
 
     private void manageBubbles(Graphics g) {
-        if (rand.nextInt(5) == 0 && bubbles.size() < 50) {
+        // Limit bubble creation rate to reduce jitter
+        if (rand.nextInt(8) == 0 && bubbles.size() < 30) {
             int x = rand.nextInt(WIDTH - 40) + 20;
             int size = rand.nextInt(15) + 10;
-            double speed = 1 + rand.nextDouble() * 2;
+            double speed = 0.8 + rand.nextDouble() * 1.5; // Slower, more stable
             bubbles.add(new Bubble(x, HEIGHT - size - 10, size, speed));
         }
+
         Iterator<Bubble> iter = bubbles.iterator();
         while (iter.hasNext()) {
             Bubble b = iter.next();
@@ -1062,20 +1260,22 @@ public class main extends JPanel implements ActionListener {
         void update() {
             y -= speed;
             if (y <= 100) {
-                alpha -= 0.02f;
+                alpha -= 0.015f; // Slower fade for smoother effect
                 if (alpha < 0)
                     alpha = 0;
             }
         }
 
         void draw(Graphics g) {
-            g.setColor(Color.WHITE);
-            drawMidpointCircle(g, x, y, size / 2);
-            g.setColor(new Color(255, 255, 255, (int) (alpha * 150)));
-            fillEllipse(g, x - size / 4 + size/8, y - size / 3 + size/8, size / 8, size / 8);
+            // Only draw if alpha is significant to reduce flickering
+            if (alpha > 0.1f) {
+                g.setColor(Color.WHITE);
+                drawMidpointCircle(g, x, y, size / 2);
+                g.setColor(new Color(255, 255, 255, (int) (alpha * 150)));
+                fillEllipse(g, x - size / 4 + size / 8, y - size / 3 + size / 8, size / 8, size / 8);
+            }
         }
     }
-    
 
     private class Heart {
         int x, y, size;
@@ -1109,34 +1309,34 @@ public class main extends JPanel implements ActionListener {
 
         void drawHeartShape(Graphics g, int cx, int cy, int size) {
             double scale = size / 100.0;
-            int heartWidth = (int)(60 * scale);
-            int heartHeight = (int)(70 * scale);
-            
+            int heartWidth = (int) (60 * scale);
+            int heartHeight = (int) (70 * scale);
+
             // Fill heart shape using proper heart equation
-            for (int y = -heartHeight/2; y <= heartHeight/2; y++) {
-                for (int x = -heartWidth/2; x <= heartWidth/2; x++) {
+            for (int y = -heartHeight / 2; y <= heartHeight / 2; y++) {
+                for (int x = -heartWidth / 2; x <= heartWidth / 2; x++) {
                     // Proper heart equation: (x² + y² - 1)³ - x²y³ ≤ 0
                     // But we need to scale and position it correctly
-                    double nx = (double)x / (heartWidth/2);
-                    double ny = (double)y / (heartHeight/2);
-                    
+                    double nx = (double) x / (heartWidth / 2);
+                    double ny = (double) y / (heartHeight / 2);
+
                     // Check if point is inside heart shape using better heart equation
                     if (isInsideHeart(nx, ny)) {
-                        g.fillRect(cx + x, cy + y, 1, 1);
+                        setPixel(g, cx + x, cy + y);
                     }
                 }
             }
         }
-        
+
         private boolean isInsideHeart(double x, double y) {
             // Better heart equation that actually looks like a heart
             // Using polar coordinates approach
             double r = Math.sqrt(x * x + y * y);
             double theta = Math.atan2(y, x);
-            
+
             // Heart shape in polar coordinates
             double heartR = 0.5 * (1 + Math.sin(theta)) * (1 + 0.3 * Math.cos(theta) - 0.1 * Math.cos(2 * theta));
-            
+
             return r <= heartR;
         }
     }
@@ -1155,8 +1355,7 @@ public class main extends JPanel implements ActionListener {
             explosionParticles.add(new ExplosionParticle(
                     mosquitoX_air, mosquitoY_air, vx, vy,
                     rand.nextInt(12) + 6,
-                    0.6f + rand.nextFloat() * 0.4f
-            ));
+                    0.6f + rand.nextFloat() * 0.4f));
         }
 
         for (int i = 0; i < 80; i++) {
@@ -1167,8 +1366,7 @@ public class main extends JPanel implements ActionListener {
             smokeParticles.add(new SmokeParticle(
                     mosquitoX_air, mosquitoY_air, vx, vy,
                     18 + rand.nextInt(22),
-                    40 + rand.nextInt(50)
-            ));
+                    40 + rand.nextInt(50)));
         }
     }
 
@@ -1177,14 +1375,14 @@ public class main extends JPanel implements ActionListener {
             // Outer glow using fillEllipse
             g.setColor(new Color(255, 255, 0, 200));
             fillEllipse(g, x, y, explosionRadius, explosionRadius);
-            
+
             // Inner bright core using fillEllipse
             g.setColor(new Color(255, 255, 255, 180));
             fillEllipse(g, x, y, explosionRadius * 2 / 3, explosionRadius * 2 / 3);
 
             // Shockwave ring using drawMidpointCircle
             if (shockwaveAlpha > 0f) {
-                g.setColor(new Color(255, 255, 255, (int)(shockwaveAlpha * 255)));
+                g.setColor(new Color(255, 255, 255, (int) (shockwaveAlpha * 255)));
                 drawMidpointCircle(g, x, y, shockwaveRadius);
             }
         }
@@ -1238,7 +1436,7 @@ public class main extends JPanel implements ActionListener {
             };
             g.setColor(colors[(int) (Math.random() * colors.length)]);
 
-            fillEllipse(g, (int)x, (int)y, size, size);
+            fillEllipse(g, (int) x, (int) y, size, size);
         }
     }
 
@@ -1280,55 +1478,59 @@ public class main extends JPanel implements ActionListener {
         void draw(Graphics g) {
             if (alpha <= 0)
                 return;
-            g.setColor(new Color(50, 50, 50, (int)(alpha * 255)));
-            fillEllipse(g, (int)(x), (int)(y), (int)size, (int)size);
+            g.setColor(new Color(50, 50, 50, (int) (alpha * 255)));
+            fillEllipse(g, (int) (x), (int) (y), (int) size, (int) size);
         }
     }
 
     private void drawForest(Graphics g) {
         int groundY = HEIGHT - 180;
         g.setColor(new Color(34, 139, 34));
-        g.fillRect(0, groundY, WIDTH, HEIGHT - groundY);
-        
+        fillRectangle(g, 0, groundY, WIDTH, HEIGHT - groundY);
+
         g.setColor(new Color(0, 100, 0));
         for (int i = 0; i < WIDTH; i += 8) {
             int grassHeight = 3 + rand.nextInt(4);
             drawBresenhamLine(g, i, groundY, i, groundY + grassHeight);
         }
-        
+
         drawPuddle(g);
-        
+
         for (Tree tree : trees) {
             tree.draw(g, groundY);
         }
-        
+
         for (Bush bush : bushes) {
             bush.draw(g, groundY);
         }
-        
+
         for (FloatingLeaf leaf : floatingLeaves) {
             leaf.update();
             leaf.draw(g);
         }
     }
-    
+
     private void drawPuddle(Graphics g) {
         g.setColor(new Color(0, 0, 0, 40));
-        fillEllipse(g, puddleX + puddleWidth/2, puddleY + puddleHeight/2, puddleWidth/2 + 8, puddleHeight/2 + 8);
-        
+        fillEllipse(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2 + 8,
+                puddleHeight / 2 + 8);
+
         g.setColor(new Color(100, 150, 255, 180));
-        fillEllipse(g, puddleX + puddleWidth/2, puddleY + puddleHeight/2, puddleWidth/2, puddleHeight/2);
-        
+        fillEllipse(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2, puddleHeight / 2);
+
         g.setColor(new Color(255, 255, 255, 120));
-        fillEllipse(g, puddleX + 25 + puddleWidth/8, puddleY + 12 + puddleHeight/6, puddleWidth/8, puddleHeight/6);
-        fillEllipse(g, puddleX + puddleWidth/2 + puddleWidth/10, puddleY + 15 + puddleHeight/8, puddleWidth/10, puddleHeight/8);
-        fillEllipse(g, puddleX + puddleWidth - 40 + puddleWidth/12, puddleY + 10 + puddleHeight/6, puddleWidth/12, puddleHeight/6);
-        
+        fillEllipse(g, puddleX + 25 + puddleWidth / 8, puddleY + 12 + puddleHeight / 6, puddleWidth / 8,
+                puddleHeight / 6);
+        fillEllipse(g, puddleX + puddleWidth / 2 + puddleWidth / 10, puddleY + 15 + puddleHeight / 8, puddleWidth / 10,
+                puddleHeight / 8);
+        fillEllipse(g, puddleX + puddleWidth - 40 + puddleWidth / 12, puddleY + 10 + puddleHeight / 6, puddleWidth / 12,
+                puddleHeight / 6);
+
         g.setColor(new Color(255, 255, 255, 100));
-        drawMidpointCircle(g, puddleX + puddleWidth/2, puddleY + puddleHeight/2, puddleWidth/2 - 30);
-        drawMidpointCircle(g, puddleX + puddleWidth/2, puddleY + puddleHeight/2, puddleWidth/2 - 50);
-        drawMidpointCircle(g, puddleX + puddleWidth/2, puddleY + puddleHeight/2, puddleWidth/2 - 70);
-        
+        drawMidpointCircle(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2 - 30);
+        drawMidpointCircle(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2 - 50);
+        drawMidpointCircle(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2 - 70);
+
         g.setColor(new Color(0, 100, 0));
         for (int i = 0; i < 12; i++) {
             int grassX = puddleX + (i * 18) + 15;
@@ -1336,7 +1538,7 @@ public class main extends JPanel implements ActionListener {
             drawBresenhamLine(g, grassX, puddleY, grassX, puddleY - grassHeight);
         }
     }
-    
+
     private void drawBirds(Graphics g) {
         for (Bird bird : birds) {
             bird.update();
@@ -1346,100 +1548,100 @@ public class main extends JPanel implements ActionListener {
 
     private class Tree {
         int baseX, height, trunkWidth;
-        
+
         Tree(int baseX, int height, int trunkWidth) {
             this.baseX = baseX;
             this.height = height;
             this.trunkWidth = trunkWidth;
         }
-        
+
         void draw(Graphics g, int groundY) {
             g.setColor(new Color(0, 0, 0, 30));
             fillEllipse(g, baseX, groundY - 10, 25, 10);
-            
+
             g.setColor(new Color(101, 67, 33));
-            g.fillRect(baseX - trunkWidth/2, groundY - height + 40, trunkWidth, height - 40);
-            
+            fillRectangle(g, baseX - trunkWidth / 2, groundY - height + 40, trunkWidth, height - 40);
+
             g.setColor(new Color(0, 0, 0, 40));
-            g.fillRect(baseX - trunkWidth/2 + 2, groundY - height + 40, trunkWidth, height - 40);
-            
+            fillRectangle(g, baseX - trunkWidth / 2 + 2, groundY - height + 40, trunkWidth, height - 40);
+
             g.setColor(new Color(0, 100, 0));
             fillEllipse(g, baseX, groundY - height + 30, 35, 30);
             fillEllipse(g, baseX, groundY - height + 45, 25, 25);
             fillEllipse(g, baseX, groundY - height + 60, 30, 20);
-            
+
             g.setColor(new Color(0, 128, 0));
             fillEllipse(g, baseX, groundY - height + 30, 30, 25);
             fillEllipse(g, baseX, groundY - height + 52, 20, 17);
         }
     }
-    
+
     private class Bush {
         int baseX, size;
-        
+
         Bush(int baseX, int size) {
             this.baseX = baseX;
             this.size = size;
         }
-        
+
         void draw(Graphics g, int groundY) {
             g.setColor(new Color(0, 0, 0, 25));
-            fillEllipse(g, baseX, groundY - size/2, size/2, size/2);
-            
+            fillEllipse(g, baseX, groundY - size / 2, size / 2, size / 2);
+
             g.setColor(new Color(0, 128, 0));
-            fillEllipse(g, baseX, groundY - size, size/2, size/2);
-            
+            fillEllipse(g, baseX, groundY - size, size / 2, size / 2);
+
             g.setColor(new Color(0, 100, 0));
-            fillEllipse(g, baseX, groundY - size + size/4, size/4, size/4);
+            fillEllipse(g, baseX, groundY - size + size / 4, size / 4, size / 4);
         }
     }
-    
+
     private class Bird {
         double x, y;
         double vx, vy;
         int wingState = 0;
-        
+
         Bird(int startX, int startY) {
             this.x = startX;
             this.y = startY;
             this.vx = 1 + Math.random() * 2;
             this.vy = Math.sin(System.currentTimeMillis() * 0.001) * 0.5;
         }
-        
+
         void update() {
             x -= vx;
             y += vy;
-            
+
             if (x > WIDTH + 50) {
                 x = -50;
                 y = 80 + Math.random() * 100;
             }
-            
+
             wingState = (wingState + 1) % 6;
         }
-        
+
         void draw(Graphics g) {
-            int centerX = (int)x;
-            int centerY = (int)y;
-            
+            int centerX = (int) x;
+            int centerY = (int) y;
+
             g.setColor(new Color(139, 69, 19));
             fillEllipse(g, centerX, centerY, 8, 4);
             fillEllipse(g, centerX - 6, centerY, 4, 4);
-            
+
             g.setColor(new Color(255, 165, 0));
-            int[] xPoints = {centerX - 12, centerX - 16, centerX - 12};
-            int[] yPoints = {centerY - 2, centerY - 2, centerY + 2};
+            int[] xPoints = { centerX - 12, centerX - 16, centerX - 12 };
+            int[] yPoints = { centerY - 2, centerY - 2, centerY + 2 };
             for (int i = 0; i < xPoints.length - 1; i++) {
                 drawBresenhamLine(g, xPoints[i], yPoints[i], xPoints[i + 1], yPoints[i + 1]);
             }
-            
+
             g.setColor(new Color(160, 82, 45));
             int wingOffset = wingState < 3 ? -2 : 2;
             fillEllipse(g, centerX - 15 + 6, centerY - 2 + wingOffset, 6, 3);
             fillEllipse(g, centerX + 3 + 6, centerY - 2 + wingOffset, 6, 3);
         }
     }
-    
+
     private class FloatingLeaf {
         double x, y;
         double vx, vy;
@@ -1447,7 +1649,7 @@ public class main extends JPanel implements ActionListener {
         double rotationSpeed;
         int size;
         float alpha;
-        
+
         FloatingLeaf(int startX, int startY) {
             this.x = startX;
             this.y = startY;
@@ -1455,29 +1657,31 @@ public class main extends JPanel implements ActionListener {
             this.vy = Math.random() * 0.3 + 0.2;
             this.rotation = Math.random() * 360;
             this.rotationSpeed = (Math.random() - 0.5) * 2;
-            this.size = 8 + (int)(Math.random() * 6);
-            this.alpha = 0.6f + (float)(Math.random() * 0.4f);
+            this.size = 8 + (int) (Math.random() * 6);
+            this.alpha = 0.6f + (float) (Math.random() * 0.4f);
         }
-        
+
         void update() {
             x += vx;
             y += vy;
             rotation += rotationSpeed;
-            
-            if (x < -20) x = WIDTH + 20;
-            if (x > WIDTH + 20) x = -20;
+
+            if (x < -20)
+                x = WIDTH + 20;
+            if (x > WIDTH + 20)
+                x = -20;
             if (y > HEIGHT + 20) {
                 y = -20;
                 x = Math.random() * WIDTH;
             }
         }
-        
+
         void draw(Graphics g) {
-            g.setColor(new Color(0, 100, 0, (int)(alpha * 255)));
-            fillEllipse(g, (int)x, (int)y, size/2, size/4);
-            
-            g.setColor(new Color(0, 80, 0, (int)(alpha * 255)));
-            drawBresenhamLine(g, (int)(x - size/3), (int)y, (int)(x + size/3), (int)y);
+            g.setColor(new Color(0, 100, 0, (int) (alpha * 255)));
+            fillEllipse(g, (int) x, (int) y, size / 2, size / 4);
+
+            g.setColor(new Color(0, 80, 0, (int) (alpha * 255)));
+            drawBresenhamLine(g, (int) (x - size / 3), (int) y, (int) (x + size / 3), (int) y);
         }
     }
 
