@@ -312,39 +312,13 @@ public class main extends JPanel implements ActionListener {
             clouds.add(new Point(rand.nextInt(WIDTH), rand.nextInt(200) + 50));
             cloudSpeeds.add(1 + rand.nextInt(3)); // ความเร็ว 1-3 pixel/frame
         }
-        // Seaweed stalks along bottom - ลดคุณภาพ
-        int seaweedCount = 8; // ลดจาก 15 เป็น 8
-        for (int i = 0; i < seaweedCount; i++) {
-            int baseX = 30 + i * (WIDTH - 60) / seaweedCount + rand.nextInt(20) - 10;
-            int height = 60 + rand.nextInt(60);
-            double amp = 6 + rand.nextDouble() * 8;
-            double speed = 0.02 + rand.nextDouble() * 0.03;
-            int segments = 8 + rand.nextInt(4); // ลดจาก 12+6 เป็น 8+4
-            seaweeds.add(new Seaweed(baseX, height, amp, speed, segments));
-        }
-
-        // Small sea grass clusters along bottom - ลดคุณภาพ
-        int clusterCount = 15; // ลดจาก 30 เป็น 15
-        for (int i = 0; i < clusterCount; i++) {
-            int baseX = 15 + i * (WIDTH - 30) / clusterCount + rand.nextInt(10) - 5;
-            int blades = 4 + rand.nextInt(4); // ลดจาก 6+6 เป็น 4+4
-            int minH = 18 + rand.nextInt(8);
-            int maxH = minH + 10 + rand.nextInt(12);
-            int spread = 10 + rand.nextInt(8);
-            double amp = 2.5 + rand.nextDouble() * 2.5;
-            double speed = 0.015 + rand.nextDouble() * 0.02;
-            seaGrasses.add(new SeaGrass(baseX, blades, spread, minH, maxH, amp, speed));
-        }
         
         meetingX = WIDTH / 2.0;
         meetingY = 120; // Lower height to fly above forest
         
-        // กำหนดตำแหน่งยุงตัวเมีย (ประมาณกลางจอด้านขวา)
         femaleMosquitoX = (meetingX + 60);
         femaleMosquitoY = meetingY;
 
-        // เริ่มบินจากซ้ายออกนอกจอ
-        // ให้ยุงตัวผู้ซ้ายกว่ากึ่งกลางประมาณ 30 pixel
         mosquitoX_air = meetingX - 60;
         mosquitoY_air = meetingY;
 
@@ -1027,22 +1001,6 @@ public class main extends JPanel implements ActionListener {
             int x = 20 + i * 40;
             int size = 10 + (i % 3) * 5;
             fillMidpointCircle(g, x + size/2, yStart + 20 + (i % 2) * 10 + size/2, size/2);
-        }
-    }
-
-    private void drawSeaweed(Graphics2D g) {
-        int groundHeight = 80;
-        int yStart = HEIGHT - groundHeight; // top of sand
-        for (Seaweed s : seaweeds) {
-            s.draw(g, yStart, frameCount);
-        }
-    }
-
-    private void drawSeaGrass(Graphics2D g) {
-        int groundHeight = 80;
-        int yStart = HEIGHT - groundHeight; // top of sand
-        for (SeaGrass c : seaGrasses) {
-            c.draw(g, yStart, frameCount);
         }
     }
 
