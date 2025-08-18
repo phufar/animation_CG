@@ -1385,28 +1385,30 @@ public class main extends JPanel implements ActionListener {
         }
 
         void drawHeartShape(Graphics g, int cx, int cy, int size) {
-            double scale = size / 100.0;
-            int heartWidth = (int) (60 * scale);
-            int heartHeight = (int) (70 * scale);
-
-            // Fill heart shape using proper heart equation
-            for (int y = -heartHeight / 2; y <= heartHeight / 2; y++) {
-                for (int x = -heartWidth / 2; x <= heartWidth / 2; x++) {
-                    // Proper heart equation: (x² + y² - 1)³ - x²y³ ≤ 0
-                    // But we need to scale and position it correctly
-                    double nx = (double) x / (heartWidth / 2);
-                    double ny = (double) y / (heartHeight / 2);
-
-                    // Check if point is inside heart shape using better heart equation
-                    if (isInsideHeart(nx, ny)) {
-                        // ใช้ Polygon สำหรับจุดเดียว
-                        Polygon point = new Polygon();
-                        point.addPoint(cx + x, cy + y);
-                        point.addPoint(cx + x, cy + y);
-                        g.drawPolygon(point);
-                    }
-                }
+            // วาดหัวใจด้วย Polygon แบบสมมาตร
+            int w = size;
+            int h = (int)(size * 0.9);
+            int n = 100; // จำนวนจุดต่อครึ่งหัวใจ
+            int[] xp = new int[2 * n + 1];
+            int[] yp = new int[2 * n + 1];
+            // สร้างครึ่งซ้ายของหัวใจ
+            for (int i = 0; i <= n; i++) {
+                double t = Math.PI - (Math.PI * i / n);
+                double x = 16 * Math.pow(Math.sin(t), 3);
+                double y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+                xp[i] = cx + (int)(w * x / 32.0);
+                yp[i] = cy - (int)(h * y / 26.0);
             }
+            // สร้างครึ่งขวาของหัวใจ
+            for (int i = 1; i <= n; i++) {
+                double t = Math.PI + (Math.PI * i / n);
+                double x = 16 * Math.pow(Math.sin(t), 3);
+                double y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+                xp[n + i] = cx + (int)(w * x / 32.0);
+                yp[n + i] = cy - (int)(h * y / 26.0);
+            }
+            Polygon heartPoly = new Polygon(xp, yp, 2 * n + 1);
+            g.fillPolygon(heartPoly);
         }
 
         private boolean isInsideHeart(double x, double y) {
