@@ -579,8 +579,8 @@ public class main extends JPanel implements ActionListener {
             case 4 -> {
                 drawFlyingMosquito(g, (int) mosquitoX_air, (int) mosquitoY_air, true, 0);
                 drawFemaleMosquito(g, (int) femaleMosquitoX + 60, (int) femaleMosquitoY);
-                int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2 + 30);
-                int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2) - 25;
+                int heartX = (int) ((mosquitoX_air + femaleMosquitoX) / 2 + 25);
+                int heartY = (int) ((mosquitoY_air + femaleMosquitoY) / 2) - 15;
                 heart.x = heartX;
                 heart.y = heartY;
                 heart.draw(g);
@@ -2216,187 +2216,314 @@ public class main extends JPanel implements ActionListener {
         }
     }
 
+    /**
+     * Draws all flying birds in the forest scene
+     * Updates and renders animated birds with wing flapping
+     * @param g Graphics context
+     */
     private void drawBirds(Graphics g) {
         for (Bird bird : birds) {
-            bird.update();
-            bird.draw(g);
+            bird.update();  // Update bird position and animation
+            bird.draw(g);   // Draw the bird
         }
     }
 
+    /**
+     * Represents a single tree in the forest scene
+     * Handles tree drawing with trunk and foliage
+     */
     private class Tree {
-        int baseX, height, trunkWidth;
+        int baseX, height, trunkWidth;  // Tree position and dimensions
 
+        /**
+         * Constructor for creating a tree
+         * @param baseX X position of the tree base
+         * @param height Total height of the tree
+         * @param trunkWidth Width of the tree trunk
+         */
         Tree(int baseX, int height, int trunkWidth) {
             this.baseX = baseX;
             this.height = height;
             this.trunkWidth = trunkWidth;
         }
 
+        /**
+         * Draws the tree with trunk and foliage
+         * Creates a realistic tree with shadow, trunk, and layered foliage
+         * @param g Graphics context
+         * @param groundY Y position of the ground level
+         */
         void draw(Graphics g, int groundY) {
-            g.setColor(new Color(0, 0, 0, 30));
+            // ===== SHADOW =====
+            // Draw shadow beneath the tree
+            g.setColor(new Color(0, 0, 0, 30));  // Black shadow with transparency
             fillEllipse(g, baseX, groundY - 10, 25, 10);
 
-            g.setColor(new Color(101, 67, 33));
+            // ===== TRUNK =====
+            // Draw main trunk
+            g.setColor(new Color(101, 67, 33));  // Brown trunk color
             fillRectangle(g, baseX - trunkWidth / 2, groundY - height + 40, trunkWidth, height - 40);
 
-            g.setColor(new Color(0, 0, 0, 40));
+            // ===== TRUNK SHADOW =====
+            // Add shadow detail to trunk
+            g.setColor(new Color(0, 0, 0, 40));  // Darker shadow on trunk
             fillRectangle(g, baseX - trunkWidth / 2 + 2, groundY - height + 40, trunkWidth, height - 40);
 
-            g.setColor(new Color(0, 100, 0));
-            fillEllipse(g, baseX, groundY - height + 30, 35, 30);
-            fillEllipse(g, baseX, groundY - height + 45, 25, 25);
-            fillEllipse(g, baseX, groundY - height + 60, 30, 20);
+            // ===== FOLIAGE LAYERS =====
+            // Draw multiple layers of foliage for depth
+            g.setColor(new Color(0, 100, 0));  // Dark green foliage
+            fillEllipse(g, baseX, groundY - height + 30, 35, 30);  // Bottom layer
+            fillEllipse(g, baseX, groundY - height + 45, 25, 25);  // Middle layer
+            fillEllipse(g, baseX, groundY - height + 60, 30, 20);  // Top layer
 
-            g.setColor(new Color(0, 128, 0));
-            fillEllipse(g, baseX, groundY - height + 30, 30, 25);
-            fillEllipse(g, baseX, groundY - height + 52, 20, 17);
+            // ===== FOLIAGE HIGHLIGHTS =====
+            // Add lighter green highlights on foliage
+            g.setColor(new Color(0, 128, 0));  // Lighter green highlights
+            fillEllipse(g, baseX, groundY - height + 30, 30, 25);  // Bottom highlight
+            fillEllipse(g, baseX, groundY - height + 52, 20, 17);  // Top highlight
         }
     }
 
+    /**
+     * Represents a single bush in the forest scene
+     * Handles bush drawing with shadow and foliage
+     */
     private class Bush {
-        int baseX, size;
+        int baseX, size;  // Bush position and size
 
+        /**
+         * Constructor for creating a bush
+         * @param baseX X position of the bush base
+         * @param size Size of the bush
+         */
         Bush(int baseX, int size) {
             this.baseX = baseX;
             this.size = size;
         }
 
+        /**
+         * Draws the bush with shadow and foliage
+         * Creates a simple bush with layered foliage effect
+         * @param g Graphics context
+         * @param groundY Y position of the ground level
+         */
         void draw(Graphics g, int groundY) {
-            g.setColor(new Color(0, 0, 0, 25));
+            // ===== SHADOW =====
+            // Draw shadow beneath the bush
+            g.setColor(new Color(0, 0, 0, 25));  // Black shadow with transparency
             fillEllipse(g, baseX, groundY - size / 2, size / 2, size / 2);
 
-            g.setColor(new Color(0, 128, 0));
+            // ===== MAIN FOLIAGE =====
+            // Draw main bush foliage
+            g.setColor(new Color(0, 128, 0));  // Light green foliage
             fillEllipse(g, baseX, groundY - size, size / 2, size / 2);
 
-            g.setColor(new Color(0, 100, 0));
+            // ===== FOLIAGE DETAIL =====
+            // Add darker foliage detail for depth
+            g.setColor(new Color(0, 100, 0));  // Darker green detail
             fillEllipse(g, baseX, groundY - size + size / 4, size / 4, size / 4);
         }
     }
 
+    /**
+     * Represents a flying bird in the forest scene
+     * Handles bird movement, wing animation, and rendering
+     */
     private class Bird {
-        double x, y;
-        double vx, vy;
-        int wingState = 0;
+        double x, y;           // Bird position
+        double vx, vy;         // Bird velocity
+        int wingState = 0;     // Wing animation state
 
+        /**
+         * Constructor for creating a flying bird
+         * @param startX Initial X position
+         * @param startY Initial Y position
+         */
         Bird(int startX, int startY) {
             this.x = startX;
             this.y = startY;
-            this.vx = 1 + Math.random() * 2;
-            this.vy = Math.sin(System.currentTimeMillis() * 0.001) * 0.5;
+            this.vx = 1 + Math.random() * 2;  // Random horizontal speed
+            this.vy = Math.sin(System.currentTimeMillis() * 0.001) * 0.5;  // Gentle vertical oscillation
         }
 
+        /**
+         * Updates bird position and wing animation
+         * Handles movement and screen wrapping
+         */
         void update() {
-            x -= vx;
-            y += vy;
+            x -= vx;  // Move bird left
+            y += vy;  // Apply vertical oscillation
 
+            // ===== SCREEN WRAPPING =====
+            // Reset bird position when it goes off screen
             if (x > WIDTH + 50) {
-                x = -50;
-                y = 80 + Math.random() * 100;
+                x = -50;  // Start from left side
+                y = 80 + Math.random() * 100;  // Random height
             }
 
-            wingState = (wingState + 1) % 6;
+            wingState = (wingState + 1) % 6;  // Cycle wing animation
         }
 
+        /**
+         * Draws the bird with body, beak, and animated wings
+         * @param g Graphics context
+         */
         void draw(Graphics g) {
             int centerX = (int) x;
             int centerY = (int) y;
 
-            g.setColor(new Color(139, 69, 19));
-            fillEllipse(g, centerX, centerY, 8, 4);
-            fillEllipse(g, centerX - 6, centerY, 4, 4);
+            // ===== BODY =====
+            // Draw bird body and head
+            g.setColor(new Color(139, 69, 19));  // Brown body color
+            fillEllipse(g, centerX, centerY, 8, 4);   // Main body
+            fillEllipse(g, centerX - 6, centerY, 4, 4); // Head
 
-            g.setColor(new Color(255, 165, 0));
-            int[] xPoints = { centerX - 12, centerX - 16, centerX - 12 };
+            // ===== BEAK =====
+            // Draw orange beak using connected lines
+            g.setColor(new Color(255, 165, 0));  // Orange beak
+            int[] xPoints = { centerX - 12, centerX - 16, centerX - 12 };  // Beak shape
             int[] yPoints = { centerY - 2, centerY - 2, centerY + 2 };
             for (int i = 0; i < xPoints.length - 1; i++) {
                 drawBresenhamLine(g, xPoints[i], yPoints[i], xPoints[i + 1], yPoints[i + 1]);
             }
 
-            g.setColor(new Color(160, 82, 45));
-            int wingOffset = wingState < 3 ? -2 : 2;
-            fillEllipse(g, centerX - 15 + 6, centerY - 2 + wingOffset, 6, 3);
-            fillEllipse(g, centerX + 3 + 6, centerY - 2 + wingOffset, 6, 3);
+            // ===== ANIMATED WINGS =====
+            // Draw flapping wings with animation
+            g.setColor(new Color(160, 82, 45));  // Wing color
+            int wingOffset = wingState < 3 ? -2 : 2;  // Wing position based on animation state
+            fillEllipse(g, centerX - 15 + 6, centerY - 2 + wingOffset, 6, 3);  // Left wing
+            fillEllipse(g, centerX + 3 + 6, centerY - 2 + wingOffset, 6, 3);   // Right wing
         }
     }
 
+    /**
+     * Represents a floating leaf in the forest scene
+     * Handles leaf movement, rotation, and rendering with transparency
+     */
     private class FloatingLeaf {
-        double x, y;
-        double vx, vy;
-        double rotation;
-        double rotationSpeed;
-        int size;
-        float alpha;
+        double x, y;                    // Leaf position
+        double vx, vy;                  // Leaf velocity
+        double rotation;                // Current rotation angle
+        double rotationSpeed;           // Rotation speed
+        int size;                       // Leaf size
+        float alpha;                    // Transparency level
 
+        /**
+         * Constructor for creating a floating leaf
+         * @param startX Initial X position
+         * @param startY Initial Y position
+         */
         FloatingLeaf(int startX, int startY) {
             this.x = startX;
             this.y = startY;
-            this.vx = (Math.random() - 0.5) * 0.5;
-            this.vy = Math.random() * 0.3 + 0.2;
-            this.rotation = Math.random() * 360;
-            this.rotationSpeed = (Math.random() - 0.5) * 2;
-            this.size = 8 + (int) (Math.random() * 6);
-            this.alpha = 0.6f + (float) (Math.random() * 0.4f);
+            this.vx = (Math.random() - 0.5) * 0.5;  // Random horizontal drift
+            this.vy = Math.random() * 0.3 + 0.2;    // Downward drift with variation
+            this.rotation = Math.random() * 360;     // Random starting rotation
+            this.rotationSpeed = (Math.random() - 0.5) * 2;  // Random rotation speed
+            this.size = 8 + (int) (Math.random() * 6);       // Random size
+            this.alpha = 0.6f + (float) (Math.random() * 0.4f); // Random transparency
         }
 
+        /**
+         * Updates leaf position and rotation
+         * Handles movement and screen wrapping
+         */
         void update() {
-            x += vx;
-            y += vy;
-            rotation += rotationSpeed;
+            x += vx;  // Update X position
+            y += vy;  // Update Y position
+            rotation += rotationSpeed;  // Update rotation
 
+            // ===== SCREEN WRAPPING =====
+            // Wrap leaf around screen edges
             if (x < -20)
-                x = WIDTH + 20;
+                x = WIDTH + 20;  // Wrap from left to right
             if (x > WIDTH + 20)
-                x = -20;
+                x = -20;  // Wrap from right to left
             if (y > HEIGHT + 20) {
-                y = -20;
-                x = Math.random() * WIDTH;
+                y = -20;  // Reset to top
+                x = Math.random() * WIDTH;  // Random X position
             }
         }
 
+        /**
+         * Draws the floating leaf with transparency
+         * Creates a simple leaf shape with vein detail
+         * @param g Graphics context
+         */
         void draw(Graphics g) {
-            g.setColor(new Color(0, 100, 0, (int) (alpha * 255)));
-            fillEllipse(g, (int) x, (int) y, size / 2, size / 4);
+            // ===== LEAF BODY =====
+            // Draw main leaf body with transparency
+            g.setColor(new Color(0, 100, 0, (int) (alpha * 255)));  // Green leaf with alpha
+            fillEllipse(g, (int) x, (int) y, size / 2, size / 4);   // Oval leaf shape
 
-            g.setColor(new Color(0, 80, 0, (int) (alpha * 255)));
-            drawBresenhamLine(g, (int) (x - size / 3), (int) y, (int) (x + size / 3), (int) y);
+            // ===== LEAF VEIN =====
+            // Draw leaf vein detail
+            g.setColor(new Color(0, 80, 0, (int) (alpha * 255)));   // Darker green vein
+            drawBresenhamLine(g, (int) (x - size / 3), (int) y, (int) (x + size / 3), (int) y);  // Center vein
         }
     }
 
+    /**
+     * Represents a transformation particle for the underwater scene
+     * Handles particle movement, fading, and rendering during egg transformation
+     */
     private class TransformationParticle {
-        double x, y;
-        double vx, vy;
-        int size;
-        float alpha;
-        float alphaDecay = 0.02f;
-        Color color;
+        double x, y;                // Particle position
+        double vx, vy;              // Particle velocity
+        int size;                   // Particle size
+        float alpha;                // Transparency level
+        float alphaDecay = 0.02f;   // Rate of alpha decay
+        Color color;                // Particle color
 
+        /**
+         * Constructor for creating a transformation particle
+         * @param x Initial X position
+         * @param y Initial Y position
+         * @param vx X velocity
+         * @param vy Y velocity
+         * @param size Particle size
+         * @param color Particle color
+         */
         TransformationParticle(double x, double y, double vx, double vy, int size, Color color) {
             this.x = x;
             this.y = y;
             this.vx = vx;
             this.vy = vy;
             this.size = size;
-            this.alpha = 1.0f;
+            this.alpha = 1.0f;  // Start fully opaque
             this.color = color;
         }
 
+        /**
+         * Updates particle position and fade effect
+         * Applies gravity and alpha decay
+         */
         void update() {
-            x += vx;
-            y += vy;
-            vy += 0.1; // Gravity
-            alpha -= alphaDecay;
-            if (alpha < 0) alpha = 0;
+            x += vx;  // Update X position
+            y += vy;  // Update Y position
+            vy += 0.1;  // Apply gravity
+            alpha -= alphaDecay;  // Fade out particle
+            if (alpha < 0) alpha = 0;  // Ensure alpha doesn't go negative
         }
 
+        /**
+         * Draws the transformation particle with color and transparency
+         * @param g Graphics context
+         */
         void draw(Graphics g) {
-            if (alpha <= 0) return;
+            if (alpha <= 0) return;  // Don't draw if fully transparent
             
+            // Apply particle color with current alpha
             g.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), (int) (alpha * 255)));
-            fillEllipse(g, (int) x, (int) y, size, size);
+            fillEllipse(g, (int) x, (int) y, size, size);  // Draw particle
         }
 
+        /**
+         * Checks if the transformation particle should be removed
+         * @return true if particle is dead, false otherwise
+         */
         boolean isDead() {
-            return alpha <= 0;
+            return alpha <= 0;  // Dead if fully transparent
         }
     }
 
