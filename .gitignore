@@ -1,3 +1,23 @@
+# macOS
 .DS_Store
-my/
+
+# Java / builds
 *.class
+*.log
+*.jar
+*.war
+*.ear
+hs_err_pid*
+
+# Build dirs
+bin/
+out/
+target/
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+
+# Your local folder
+my/

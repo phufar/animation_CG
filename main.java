@@ -1608,9 +1608,6 @@ public class main extends JPanel implements ActionListener {
                 puddleHeight / 6);
 
         g.setColor(new Color(255, 255, 255, 100));
-        // drawCircle(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2 - 30);
-        // drawCircle(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2 - 50);
-        // drawCircle(g, puddleX + puddleWidth / 2, puddleY + puddleHeight / 2, puddleWidth / 2 - 70);
 
         g.setColor(new Color(0, 100, 0));
         for (int i = 0; i < 12; i++) {
